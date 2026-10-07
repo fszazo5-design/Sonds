@@ -251,7 +251,7 @@ function App() {
   return (
     <main dir="rtl" className="app-shell">
       <div className="topbar">
-        <div className="brand-mark"><span className="brand-paw">✦</span><div><strong>توتي</strong><small>صديقك الصحي</small></div></div>
+        <div className="brand-mark"><span className="brand-paw">✦</span><div><strong>سندس دي أنا</strong><small>خطتي الصحية</small></div></div>
         <div className="topbar-actions"><button className="icon-button" aria-label="طلب إذن الإشعارات" onClick={() => window.AndroidBridge?.requestNotificationPermission()}><Bell size={19} /><i /></button><button className="icon-button" aria-label="إعدادات الأذونات" onClick={() => setShowPermissionSettings(true)}><ShieldCheck size={19} /></button><div className="profile-badge">س</div></div>
       </div>
 

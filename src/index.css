@@ -127,3 +127,8 @@ footer { display: flex; justify-content: space-between; padding: 25px 0; color: 
   .topbar-actions { gap: 7px; }
   .permission-modal { padding: 27px 17px 19px; }
 }
+@media (max-width: 520px) {
+  .brand-mark { gap: 7px; }
+  .brand-mark strong { font-size: 18px; line-height: 19px; white-space: nowrap; }
+  .brand-mark small { font-size: 9px; }
+}

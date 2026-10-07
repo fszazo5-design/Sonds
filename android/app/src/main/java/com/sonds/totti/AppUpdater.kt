@@ -110,7 +110,7 @@ internal class AppUpdater(private val activity: MainActivity) {
     private fun showUpdatePrompt(version: String, apkUrl: String) = activity.runOnUiThread {
         if (activity.isFinishing) return@runOnUiThread
         AlertDialog.Builder(activity)
-            .setTitle("يتوفر تحديث لتوتي")
+            .setTitle("يتوفر تحديث لسندس دي أنا")
             .setMessage("الإصدار $version متاح. هل تريد تنزيل ملف التحديث وتثبيته؟")
             .setNegativeButton("لاحقًا", null)
             .setPositiveButton("تنزيل التحديث") { _, _ -> beginDownload(version, apkUrl) }
@@ -121,7 +121,7 @@ internal class AppUpdater(private val activity: MainActivity) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
             AlertDialog.Builder(activity)
                 .setTitle("السماح بتثبيت التحديث")
-                .setMessage("اسمح لتطبيق توتي بتثبيت التحديث من هذا المصدر في إعدادات Android، ثم عُد واضغط «فحص تحديث التطبيق» مرة أخرى.")
+                .setMessage("اسمح لتطبيق سندس دي أنا بتثبيت التحديث من هذا المصدر في إعدادات Android، ثم عُد واضغط «فحص تحديث التطبيق» مرة أخرى.")
                 .setNegativeButton("إلغاء", null)
                 .setPositiveButton("فتح الإعدادات") { _, _ ->
                     activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
@@ -134,7 +134,7 @@ internal class AppUpdater(private val activity: MainActivity) {
 
         try {
             val request = DownloadManager.Request(Uri.parse(apkUrl))
-                .setTitle("تحديث توتي $version")
+                .setTitle("تحديث سندس دي أنا $version")
                 .setDescription("تنزيل APK الرسمي من GitHub Releases")
                 .setMimeType(APK_MIME_TYPE)
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)

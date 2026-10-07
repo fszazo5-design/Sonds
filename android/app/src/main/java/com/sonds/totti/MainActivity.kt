@@ -11,12 +11,15 @@ import android.provider.Settings
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.webkit.WebViewAssetLoader
+import androidx.webkit.WebViewClientCompat
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
+    private lateinit var assetLoader: WebViewAssetLoader
     private lateinit var database: PlanDatabase
     private lateinit var appUpdater: AppUpdater
 
@@ -34,30 +37,38 @@ class MainActivity : Activity() {
         appUpdater = AppUpdater(this)
         appUpdater.registerReceiver()
 
+        assetLoader = WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .build()
+
         webView = WebView(this).apply {
             setBackgroundColor(android.graphics.Color.rgb(247, 248, 252))
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.databaseEnabled = true
-            settings.allowFileAccess = true
+            settings.allowFileAccess = false
             settings.allowContentAccess = false
             settings.allowFileAccessFromFileURLs = false
             settings.allowUniversalAccessFromFileURLs = false
             settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
             webChromeClient = WebChromeClient()
-            webViewClient = object : WebViewClient() {
+            webViewClient = object : WebViewClientCompat() {
+                override fun shouldInterceptRequest(
+                    view: WebView,
+                    request: WebResourceRequest
+                ): WebResourceResponse? = assetLoader.shouldInterceptRequest(request.url)
+
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val url = request.url
-                    return !(url.scheme == "file" && url.path.orEmpty().startsWith("/android_asset/www/"))
+                    return !(url.scheme == "https" && url.host == "appassets.androidplatform.net")
                 }
             }
             addJavascriptInterface(AppBridge(), "AndroidBridge")
         }
         setContentView(webView)
-        if (savedInstanceState == null) {
-            webView.loadUrl("file:///android_asset/www/index.html")
-        } else {
-            webView.restoreState(savedInstanceState)
+        val restoredState = savedInstanceState?.let { webView.restoreState(it) }
+        if (restoredState == null || !webView.url.orEmpty().startsWith(APP_ASSET_BASE_URL)) {
+            webView.loadUrl(APP_ASSET_START_URL)
         }
     }
 
@@ -79,6 +90,11 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated in Android API; retained for broad device compatibility")
     override fun onBackPressed() {
         if (::webView.isInitialized && webView.canGoBack()) webView.goBack() else super.onBackPressed()
+    }
+
+    private companion object {
+        const val APP_ASSET_BASE_URL = "https://appassets.androidplatform.net/assets/www/"
+        const val APP_ASSET_START_URL = "https://appassets.androidplatform.net/assets/www/index.html"
     }
 
     inner class AppBridge {
