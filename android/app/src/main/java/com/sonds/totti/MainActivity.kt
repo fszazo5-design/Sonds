@@ -18,6 +18,7 @@ import android.widget.Toast
 class MainActivity : Activity() {
     private lateinit var webView: WebView
     private lateinit var database: PlanDatabase
+    private lateinit var appUpdater: AppUpdater
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,6 +31,8 @@ class MainActivity : Activity() {
         database = PlanDatabase(this)
         MealAlarmScheduler.ensureChannel(this)
         MealAlarmScheduler(this).scheduleAll()
+        appUpdater = AppUpdater(this)
+        appUpdater.registerReceiver()
 
         webView = WebView(this).apply {
             setBackgroundColor(android.graphics.Color.rgb(247, 248, 252))
@@ -63,6 +66,16 @@ class MainActivity : Activity() {
         super.onSaveInstanceState(outState)
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (::appUpdater.isInitialized) appUpdater.onResume()
+    }
+
+    override fun onDestroy() {
+        if (::appUpdater.isInitialized) appUpdater.unregisterReceiver()
+        super.onDestroy()
+    }
+
     @Deprecated("Deprecated in Android API; retained for broad device compatibility")
     override fun onBackPressed() {
         if (::webView.isInitialized && webView.canGoBack()) webView.goBack() else super.onBackPressed()
@@ -90,6 +103,9 @@ class MainActivity : Activity() {
         } catch (error: Exception) {
             "error:${error.message.orEmpty()}"
         }
+
+        @JavascriptInterface
+        fun checkForAppUpdate() = appUpdater.checkForUpdate()
 
         @JavascriptInterface
         fun requestNotificationPermission() = runOnUiThread {
