@@ -98,7 +98,9 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           sha256sum Sonds.apk > Sonds.apk.sha256
           if [ "$IS_RELEASE" = true ]; then
-            APK_CERT=$("$APKSIGNER" verify --print-certs Sonds.apk | sed -n 's/.*Signer #1 certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+            APK_CERT_OUTPUT=$("$APKSIGNER" verify --print-certs Sonds.apk 2>&1)
+            printf 'APK signer verification output:\n%s\n' "$APK_CERT_OUTPUT"
+            APK_CERT=$(printf '%s\n' "$APK_CERT_OUTPUT" | tr -d ':' | grep -i 'sha' | grep -oE '[[:xdigit:]]{64}' | head -n 1 | tr '[:upper:]' '[:lower:]' || true)
             echo "APK signer certificate: $APK_CERT"
             if [ "$APK_CERT" != "$EXPECTED_CERT" ]; then
               echo "::error::Built APK signer mismatch. Expected $EXPECTED_CERT; received $APK_CERT."
