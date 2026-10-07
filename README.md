@@ -1,4 +1,4 @@
-# توتي — خطتك الصحية
+# سندس دي أنا — خطتي الصحية
 
 تطبيق خطة تغذية عربي لسندس، بواجهة React الحالية ضمن تطبيق Android أصلي مكتوب بـ Kotlin. يحافظ الغلاف على واجهة React ويعرضها محليًا داخل WebView، بينما يدير Android التخزين وجدولة التذكيرات.
 
@@ -24,4 +24,4 @@ cd android
 ```
 
 الملف الناتج: `android/app/build/outputs/apk/debug/app-debug.apk` (نسخة debug قابلة للتثبيت للتجربة).
-لتجهيز OTA: احفظ مفتاح توقيع APK الحالي في سر GitHub Actions باسم `ANDROID_DEBUG_KEYSTORE_BASE64`؛ ادفع tag مثل `v1.0.1` لتبني workflow ملف APK وتنشره في GitHub Release. تفاصيل الإعداد في [android/README.md](android/README.md).
+لتجهيز OTA: احفظ مفتاح توقيع APK الحالي في سر GitHub Actions باسم `ANDROID_DEBUG_KEYSTORE_BASE64`؛ ادفع tag مثل `v1.0.3` لتبني workflow ملف APK وتنشره في GitHub Release. تفاصيل الإعداد في [android/README.md](android/README.md).

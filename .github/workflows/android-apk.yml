@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'اختياري: أنشئ أو حدّث Release بهذا الوسم (مثال: v1.0.1)'
+        description: 'اختياري: أنشئ أو حدّث Release بهذا الوسم (مثال: v1.0.3)'
         required: false
         type: string
 
@@ -139,6 +139,6 @@ jobs:
           else
             gh release create "$RELEASE_TAG" Sonds.apk Sonds.apk.sha256 \
               --repo "$GITHUB_REPOSITORY" \
-              --title "توتي $RELEASE_TAG" \
+              --title "سندس دي أنا $RELEASE_TAG" \
               --generate-notes
           fi
