@@ -79,7 +79,9 @@ jobs:
           APP_VERSION_CODE=$((1000 + RUN_NUMBER))
           ./gradlew --no-daemon assembleDebug \
             -PappVersionCode="$APP_VERSION_CODE" \
-            -PappVersionName="$APP_VERSION"
+            -PappVersionName="$APP_VERSION" \
+            -PuseStableDebugSigning="$IS_RELEASE" \
+            -PstableDebugKeystorePath="$HOME/.android/debug.keystore"
           cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Sonds.apk"
           cd "$GITHUB_WORKSPACE"
           sha256sum Sonds.apk > Sonds.apk.sha256

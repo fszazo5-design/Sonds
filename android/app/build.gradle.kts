@@ -3,6 +3,9 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val useStableDebugSigning = providers.gradleProperty("useStableDebugSigning").orNull == "true"
+val stableDebugKeystorePath = providers.gradleProperty("stableDebugKeystorePath").orNull
+
 val prepareWebAssets by tasks.registering(Sync::class) {
     from(file("../../dist"))
     into(layout.buildDirectory.dir("generated/assets/www"))
@@ -20,7 +23,24 @@ android {
         versionName = providers.gradleProperty("appVersionName").orNull ?: "1.0.0"
     }
 
+    signingConfigs {
+        create("otaDebug") {
+            if (useStableDebugSigning) {
+                storeFile = file(requireNotNull(stableDebugKeystorePath))
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/assets"))
+
+    buildTypes {
+        getByName("debug") {
+            if (useStableDebugSigning) signingConfig = signingConfigs.getByName("otaDebug")
+        }
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
