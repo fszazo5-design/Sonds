@@ -5,6 +5,7 @@
 
 :root { font-family: 'Cairo', sans-serif; color: #251a34; background: #f7f8fc; font-synthesis: none; text-rendering: optimizeLegibility; }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; min-width: 320px; background: #f7f8fc; }
 button, input { font: inherit; }
 button { cursor: pointer; }
@@ -131,4 +132,20 @@ footer { display: flex; justify-content: space-between; padding: 25px 0; color: 
   .brand-mark { gap: 7px; }
   .brand-mark strong { font-size: 18px; line-height: 19px; white-space: nowrap; }
   .brand-mark small { font-size: 9px; }
+}
+.update-button { color: #a36d00; background: #fff7df; border-color: #f1dfaa; }
+.update-button:active { background: #ffedbb; }
+.page-heading { margin: 16px 0 20px; padding: 20px 23px; border: 1px solid #ece9f0; border-radius: 19px; background: #fff; }
+.page-heading h1 { margin: 3px 0 2px; color: #35243c; font-size: 27px; font-weight: 900; }
+.page-heading p { margin: 0; color: #807587; font-size: 12px; line-height: 1.7; }
+.bottom-grid.single-panel { grid-template-columns: minmax(0, 1fr); }
+.info-actions-card { margin-top: 14px; padding: 21px 23px; border: 1px solid #ece9f0; border-radius: 19px; background: #fff; }
+.info-actions-card h2 { margin: 4px 0; font-size: 20px; font-weight: 900; }
+.info-actions-card p { margin: 5px 0 15px; color: #807587; font-size: 12px; line-height: 1.8; }
+.info-actions-card button { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border: 0; border-radius: 11px; background: #ffe0ef; color: #a90057; font-size: 12px; font-weight: 900; }
+@media (max-width: 520px) {
+  .topbar-actions { gap: 5px; }
+  .icon-button, .profile-badge { width: 34px; height: 34px; }
+  .page-heading { margin-top: 10px; padding: 16px 17px; }
+  .info-actions-card { padding: 18px 17px; }
 }
