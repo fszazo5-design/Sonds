@@ -9,6 +9,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.net.Uri
 import android.os.Build
 import java.util.Calendar
 
@@ -58,14 +60,22 @@ internal class MealAlarmScheduler(private val context: Context) {
 
     companion object {
         const val EXTRA_MEAL_ID = "meal_id"
-        const val CHANNEL_ID = "meal_schedule"
+        const val CHANNEL_ID = "meal_schedule_with_audio_v1"
 
         fun ensureChannel(context: Context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                val soundUri = Uri.parse("android.resource://${context.packageName}/${R.raw.sondos_meal_reminder}")
+                val audioAttributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
                 val channel = android.app.NotificationChannel(
                     CHANNEL_ID, "تذكيرات مواعيد الوجبات", NotificationManager.IMPORTANCE_HIGH
-                ).apply { description = "تنبيهات محلية لمواعيد خطة التغذية" }
+                ).apply {
+                    description = "تنبيهات محلية لمواعيد خطة التغذية بالصوت المرفق"
+                    setSound(soundUri, audioAttributes)
+                }
                 manager.createNotificationChannel(channel)
             }
         }
