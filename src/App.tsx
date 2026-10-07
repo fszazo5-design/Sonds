@@ -6,6 +6,8 @@ import {
   CalendarDays,
   Check,
   ChevronLeft,
+  Camera,
+  Clock,
   CircleHelp,
   Flame,
   Gift,
@@ -13,9 +15,11 @@ import {
   Info,
   LayoutDashboard,
   LockKeyhole,
+  Mic,
   Plus,
   Sparkles,
   Star,
+  ShieldCheck,
   Trophy,
   Utensils,
   X,
@@ -49,12 +53,12 @@ type Reward = {
   unlocked: boolean;
 };
 
-const meals: Meal[] = [
+const defaultMeals: Meal[] = [
   {
     id: 'breakfast',
     title: 'الفطار',
     label: 'البداية القوية',
-    time: '08:00 ص',
+    time: '08:00',
     calories: 420,
     accent: 'pink',
     icon: '☀',
@@ -64,7 +68,7 @@ const meals: Meal[] = [
     id: 'snack-1',
     title: 'سناك 1',
     label: 'وقت الطاقة',
-    time: '11:00 ص',
+    time: '11:00',
     calories: 175,
     accent: 'yellow',
     icon: '◒',
@@ -74,7 +78,7 @@ const meals: Meal[] = [
     id: 'lunch',
     title: 'الغداء',
     label: 'وجبة الأبطال',
-    time: '02:30 م',
+    time: '14:30',
     calories: 530,
     accent: 'blue',
     icon: '✦',
@@ -84,7 +88,7 @@ const meals: Meal[] = [
     id: 'snack-2',
     title: 'سناك 2',
     label: 'استراحة لذيذة',
-    time: '05:30 م',
+    time: '17:30',
     calories: 100,
     accent: 'green',
     icon: '●',
@@ -94,7 +98,7 @@ const meals: Meal[] = [
     id: 'dinner',
     title: 'العشاء',
     label: 'نهاية مريحة',
-    time: '08:00 م',
+    time: '20:00',
     calories: 435,
     accent: 'orange',
     icon: '☾',
@@ -102,7 +106,16 @@ const meals: Meal[] = [
   },
 ];
 
-const getToday = (): string => new Date().toISOString().slice(0, 10);
+const getToday = (): string => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+const formatMealTime = (time: string): string => {
+  const [hour, minute] = time.split(':').map(Number);
+  const value = new Date();
+  value.setHours(hour, minute, 0, 0);
+  return new Intl.DateTimeFormat('ar-EG', { hour: '2-digit', minute: '2-digit' }).format(value);
+};
 const navigation: Array<{ Icon: ComponentType<LucideProps>; id: string; label: string }> = [
   { Icon: LayoutDashboard, id: 'home', label: 'الرئيسية' },
   { Icon: CalendarDays, id: 'calendar', label: 'تقويمي' },
@@ -115,6 +128,23 @@ const defaultRewards: Reward[] = [
   { id: 2, title: 'نزهة ممتعة مع بابا', note: 'مكافأة 14 يوماً', unlocked: false },
   { id: 3, title: 'مفاجأة كبيرة من بابا', note: 'عند الوصول إلى 100 يوم', unlocked: false },
 ];
+
+type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[] };
+const readSavedPlan = (): PersistedPlan => {
+  try {
+    const nativeData = typeof window !== 'undefined' ? window.AndroidBridge?.loadState() : '';
+    const saved = nativeData || (typeof localStorage !== 'undefined' ? localStorage.getItem('sondos-totti-plan') : null);
+    if (!saved) return {};
+    const parsed = JSON.parse(saved) as PersistedPlan;
+    return {
+      ...parsed,
+      meals: Array.isArray(parsed.meals) && parsed.meals.length ? parsed.meals : undefined,
+      rewards: Array.isArray(parsed.rewards) ? parsed.rewards : undefined,
+    };
+  } catch {
+    return {};
+  }
+};
 
 const Totti = ({ celebrate = false, pose = 'happy' }: { celebrate?: boolean; pose?: string }) => (
   <div className={`totti-wrap totti-${pose} ${celebrate ? 'totti-celebrate' : ''}`} aria-label="توتي الكلب اللطيف">
@@ -151,28 +181,22 @@ const Chick = () => (
 
 function App() {
   const today = getToday();
-  const [checked, setChecked] = useState<Record<string, boolean>>({});
-  const [streak, setStreak] = useState(6);
-  const [rewards, setRewards] = useState<Reward[]>(defaultRewards);
+  const [bootData] = useState(readSavedPlan);
+  const [meals, setMeals] = useState<Meal[]>(bootData.meals ?? defaultMeals);
+  const [checked, setChecked] = useState<Record<string, boolean>>(() => bootData.day?.date === today ? (bootData.day.checked || {}) : {});
+  const [streak, setStreak] = useState(bootData.day?.streak || 6);
+  const [rewards, setRewards] = useState<Reward[]>(bootData.rewards?.length ? bootData.rewards : defaultRewards);
+  const [now, setNow] = useState(() => new Date());
   const [showRewardForm, setShowRewardForm] = useState(false);
+  const [showPermissionSettings, setShowPermissionSettings] = useState(false);
   const [rewardTitle, setRewardTitle] = useState('');
   const [showCelebration, setShowCelebration] = useState(false);
   const [activeNav, setActiveNav] = useState('home');
 
   useEffect(() => {
-    const saved = localStorage.getItem('sondos-totti-plan');
-    if (!saved) return;
-    try {
-      const data = JSON.parse(saved) as { day?: SavedDay; rewards?: Reward[] };
-      if (data.day?.date === today) {
-        setChecked(data.day.checked || {});
-        setStreak(data.day.streak || 6);
-      }
-      if (data.rewards?.length) setRewards(data.rewards);
-    } catch {
-      localStorage.removeItem('sondos-totti-plan');
-    }
-  }, [today]);
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const completedCount = meals.filter((meal) => checked[meal.id]).length;
   const score = completedCount * 20;
@@ -185,9 +209,19 @@ function App() {
     const payload = {
       day: { date: today, checked, completedMeals: meals.filter((meal) => checked[meal.id]).map((meal) => meal.id), score, streak },
       rewards,
+      meals,
     };
-    localStorage.setItem('sondos-totti-plan', JSON.stringify(payload));
-  }, [checked, rewards, score, streak, today]);
+    try {
+      localStorage.setItem('sondos-totti-plan', JSON.stringify(payload));
+    } catch {
+      // SQLite through the Android bridge remains the durable source on file-based WebView origins.
+    }
+    window.AndroidBridge?.saveState(JSON.stringify(payload));
+  }, [checked, meals, rewards, score, streak, today]);
+
+  useEffect(() => {
+    window.AndroidBridge?.saveSchedule(JSON.stringify(meals.map(({ id, title, time }) => ({ id, title, time }))));
+  }, [meals]);
 
   const tottiMessage = useMemo(() => {
     if (allComplete) return 'واو! يوم كامل من الإنجاز! أنتِ بطلة حقيقية';
@@ -217,7 +251,7 @@ function App() {
     <main dir="rtl" className="app-shell">
       <div className="topbar">
         <div className="brand-mark"><span className="brand-paw">✦</span><div><strong>توتي</strong><small>صديقك الصحي</small></div></div>
-        <div className="topbar-actions"><button className="icon-button" aria-label="الإشعارات"><Bell size={19} /><i /></button><div className="profile-badge">س</div></div>
+        <div className="topbar-actions"><button className="icon-button" aria-label="طلب إذن الإشعارات" onClick={() => window.AndroidBridge?.requestNotificationPermission()}><Bell size={19} /><i /></button><button className="icon-button" aria-label="إعدادات الأذونات" onClick={() => setShowPermissionSettings(true)}><ShieldCheck size={19} /></button><div className="profile-badge">س</div></div>
       </div>
 
       <section className="hero-card">
@@ -225,7 +259,7 @@ function App() {
           <div className="eyebrow"><Sparkles size={15} /> خطوتك الحلوة تبدأ اليوم</div>
           <h1>أهلاً يا <span>آنسة سندس!</span></h1>
           <p>أنتِ وتوتي في رحلة صحية نابضة بالحياة</p>
-          <div className="date-chip"><CalendarDays size={16} /> {new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}</div>
+          <div className="hero-meta"><div className="date-chip"><CalendarDays size={16} /> {new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' }).format(now)}</div><div className="clock-chip"><div className="analog-clock" aria-label="ساعة متحركة"><span className="clock-hand clock-hour" style={{ transform: `rotate(${(now.getHours() % 12) * 30 + now.getMinutes() / 2}deg)` }} /><span className="clock-hand clock-minute" style={{ transform: `rotate(${now.getMinutes() * 6 + now.getSeconds() / 10}deg)` }} /><span className="clock-hand clock-second" style={{ transform: `rotate(${now.getSeconds() * 6}deg)` }} /><i /></div><div><strong>{new Intl.DateTimeFormat('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(now)}</strong><small>{nextMeal ? `الوجبة التالية: ${nextMeal.title} — ${formatMealTime(nextMeal.time)}` : 'اكتملت وجبات اليوم'}</small></div></div></div>
         </div>
         <div className="hero-totti hero-characters"><div className="sparkle sparkle-one">✦</div><div className="sparkle sparkle-two">✧</div><Totti pose="wave" /><Chick /></div>
       </section>
@@ -250,7 +284,7 @@ function App() {
             const isDone = Boolean(checked[meal.id]);
             return <article className={`meal-card meal-card-${meal.accent} ${isDone ? 'meal-done' : ''}`} key={meal.id}>
               <div className={`meal-icon meal-${meal.accent}`}>{meal.icon}</div><div className="meal-totti"><Totti pose={index === 0 ? 'wave' : index === 2 ? 'wink' : 'happy'} /></div>
-              <div className="meal-main"><div className="meal-topline"><div><span className="meal-label">{meal.label}</span><h3>{meal.title}</h3></div><div className="meal-time"><CalendarDays size={14} /> {meal.time}</div></div><ul>{meal.items.map((item) => <li key={item}><span />{item}</li>)}</ul></div>
+              <div className="meal-main"><div className="meal-topline"><div><span className="meal-label">{meal.label}</span><h3>{meal.title}</h3></div><label className="meal-time"><Clock size={15} /><input className="meal-time-input" type="time" value={meal.time} aria-label={`موعد ${meal.title}`} onChange={(event) => setMeals((current) => current.map((item) => item.id === meal.id ? { ...item, time: event.target.value } : item))} /><span className="meal-time-readable">{formatMealTime(meal.time)}</span></label></div><ul>{meal.items.map((item) => <li key={item}><span />{item}</li>)}</ul></div>
               <div className="meal-side"><strong>{meal.calories}</strong><small>سعرة</small><button className={`check-button ${isDone ? 'checked' : ''}`} onClick={() => toggleMeal(meal.id)} aria-label={`تحديد ${meal.title}`}><Check size={22} strokeWidth={3} /></button></div>
               {isDone && <div className="done-ribbon">تمت <Check size={12} /></div>}
             </article>;
@@ -269,6 +303,8 @@ function App() {
       </section>
 
       <footer><span>صُنع بحب لسندس وتوتي</span><span>تذكري: كل خطوة صغيرة انتصار كبير <Heart size={14} fill="currentColor" /></span></footer>
+
+      {showPermissionSettings && <div className="celebration-overlay permission-overlay"><section className="permission-modal" role="dialog" aria-modal="true" aria-labelledby="permission-title"><button className="close-modal" onClick={() => setShowPermissionSettings(false)} aria-label="إغلاق"><X size={18} /></button><div className="permission-icon"><ShieldCheck size={27} /></div><span className="section-kicker">إعدادات الجهاز</span><h2 id="permission-title">الأذونات والتنبيهات</h2><p>نطلب كل إذن عند اختيارك له. الكاميرا والميكروفون غير مستخدمين حاليًا داخل الخطة.</p><div className="permission-actions"><button onClick={() => window.AndroidBridge?.requestNotificationPermission()}><Bell size={19} /><span><b>السماح بتنبيهات الوجبات</b><small>تذكير محلي في موعد كل وجبة</small></span></button><button onClick={() => window.AndroidBridge?.requestExactAlarmAccess()}><Clock size={19} /><span><b>ضبط دقة مواعيد التنبيه</b><small>يفتح إعدادات المنبهات الدقيقة في Android</small></span></button><button onClick={() => window.AndroidBridge?.requestCameraPermission()}><Camera size={19} /><span><b>إذن الكاميرا</b><small>لا يُطلب إلا عند ضغط هذا الخيار</small></span></button><button onClick={() => window.AndroidBridge?.requestMicrophonePermission()}><Mic size={19} /><span><b>إذن الميكروفون</b><small>لا يُطلب إلا عند ضغط هذا الخيار</small></span></button></div></section></div>}
 
       <nav className="bottom-nav">{navigation.map(({ Icon, id, label }) => <button key={id} className={activeNav === id ? 'nav-active' : ''} onClick={() => setActiveNav(id)}><Icon size={20} /><span>{label}</span></button>)}</nav>
 

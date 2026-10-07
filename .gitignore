@@ -21,3 +21,8 @@ dist-ssr
 *.sln
 *.sw?
 .env
+android/.gradle/
+android/local.properties
+**/build/
+*.jks
+*.keystore

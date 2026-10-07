@@ -84,3 +84,46 @@ footer { display: flex; justify-content: space-between; padding: 25px 0; color: 
 @media (max-width: 800px) { .app-shell { padding: 0 16px 87px; }.topbar { height: 70px; }.hero-card { min-height: 235px; padding: 30px 25px; }.hero-totti { width: 160px; transform: scale(.86); }.hero-card p { font-size: 14px; }.stats-grid { gap: 9px; }.stat-card { padding: 12px 10px; gap: 7px; }.stat-card strong { font-size: 20px; }.meal-list { grid-template-columns: 1fr; }.bottom-grid { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { .hero-characters { gap: 0; transform: scale(.72); transform-origin: right center; width: 245px; margin-left: -35px; } .chick-illustration { width: 118px; height: 118px; } .meal-card h3 { font-size: 27px; } .meal-card .meal-label { font-size: 15px; } .meal-card .meal-time { font-size: 14px; } .meal-card .meal-main li { font-size: 15px; line-height: 1.62; } .meal-card .meal-side strong { font-size: 25px; } .meal-card .meal-side small { font-size: 14px; } }
 @media (max-width: 520px) { .hero-card { border-radius: 20px; padding: 25px 20px; }.hero-totti { position: absolute; left: -2px; bottom: -5px; transform: scale(.61); opacity: .92; }.hero-copy { width: 100%; }.hero-card h1 { font-size: 38px; }.hero-card p { max-width: 195px; line-height: 1.6; }.date-chip { font-size: 10px; }.stats-grid { grid-template-columns: 1fr 1fr; }.score-stat { grid-column: span 2; }.stat-card { min-height: 70px; }.progress-panel { padding: 19px 15px 14px; }.meal-card { min-height: 180px; padding: 16px 13px; }.meal-topline { display: block; }.meal-time { margin-top: 3px; }.meal-side { min-width: 49px; }.meal-main li { font-size: 9px; }.bottom-grid { margin-top: 28px; }.reward-card, .tip-card { padding: 18px 15px; } footer { display: none; }.bottom-nav { display: flex; position: fixed; z-index: 10; bottom: 0; right: 0; left: 0; height: 68px; background: #fff; border-top: 1px solid #ede8ef; justify-content: space-around; padding: 7px 10px 5px; box-shadow: 0 -5px 20px #2815330d; }.bottom-nav button { border: 0; background: none; color: #aaa0b0; font-size: 9px; font-weight: 700; display: grid; place-items: center; gap: 2px; min-width: 55px; }.bottom-nav .nav-active { color: #ff007f; }.bottom-nav .nav-active svg { background: #ffe0ef; padding: 6px; width: 34px; height: 34px; border-radius: 10px; } }
+
+
+/* Android additions: live clock, editable meal schedule and explicit permission controls */
+.hero-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
+.clock-chip { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 5px 11px; border-radius: 12px; background: #fff; color: #6b2252; box-shadow: 0 3px 12px #9b1e5c20; }
+.clock-chip strong, .clock-chip small { display: block; }
+.clock-chip strong { font-size: 15px; line-height: 1.15; font-weight: 900; font-variant-numeric: tabular-nums; }
+.clock-chip small { color: #967d8e; font-size: 9px; font-weight: 700; }
+.analog-clock { position: relative; width: 30px; height: 30px; flex: 0 0 30px; border: 2px solid #ff007f; border-radius: 50%; background: #fffafd; }
+.analog-clock::before, .analog-clock::after { content: ''; position: absolute; background: #ffb8d7; border-radius: 2px; }
+.analog-clock::before { width: 1px; height: 4px; top: 2px; left: 12px; box-shadow: 0 18px #ffb8d7; }
+.analog-clock::after { height: 1px; width: 4px; top: 12px; left: 2px; box-shadow: 18px 0 #ffb8d7; }
+.clock-hand { position: absolute; z-index: 1; display: block; width: 2px; left: 12px; bottom: 13px; transform-origin: center bottom; border-radius: 2px; }
+.clock-hour { height: 8px; background: #6c3456; }
+.clock-minute { height: 10px; background: #ff007f; }
+.clock-second { height: 11px; width: 1px; left: 12.5px; background: #00a5c0; }
+.analog-clock i { position: absolute; z-index: 2; width: 4px; height: 4px; left: 10px; top: 10px; border-radius: 50%; background: #ff007f; }
+.meal-time { position: relative; gap: 5px; }
+.meal-time-input { width: 124px; min-width: 0; padding: 2px 3px; border: 1px solid #eadce7; border-radius: 7px; color: #3c2946; background: #fff; font: inherit; font-size: 14px; font-weight: 800; direction: ltr; }
+.meal-time-input:focus { outline: 2px solid #ff9aca; border-color: #ff007f; }
+.meal-time-readable { display: none; }
+.permission-overlay { z-index: 30; }
+.permission-modal { position: relative; width: min(100%, 440px); max-height: 90vh; overflow-y: auto; padding: 29px 24px 23px; border-radius: 25px; background: #fff; text-align: center; box-shadow: 0 20px 50px #0004; }
+.permission-icon { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 10px; border-radius: 18px; color: #ff007f; background: #ffe0ef; }
+.permission-modal h2 { margin: 4px 0; color: #35243c; font-size: 23px; font-weight: 900; }
+.permission-modal > p { margin: 7px 7px 17px; color: #807587; font-size: 12px; line-height: 1.8; }
+.permission-actions { display: grid; gap: 8px; text-align: right; }
+.permission-actions button { display: flex; align-items: center; gap: 11px; width: 100%; padding: 11px 13px; border: 1px solid #eee7f0; border-radius: 13px; background: #fffafd; color: #ff007f; text-align: right; }
+.permission-actions button:active { background: #ffe9f3; }
+.permission-actions button span { display: block; color: #413347; }
+.permission-actions b, .permission-actions small { display: block; }
+.permission-actions b { font-size: 12px; }
+.permission-actions small { margin-top: 2px; color: #918596; font-size: 10px; }
+@media (max-width: 520px) {
+  .hero-meta { align-items: flex-start; gap: 6px; }
+  .hero-meta .date-chip { min-height: 40px; padding: 7px 9px; }
+  .clock-chip { min-height: 40px; padding: 4px 7px; }
+  .clock-chip strong { font-size: 12px; }
+  .clock-chip small { font-size: 8px; }
+  .meal-time-input { width: 112px; font-size: 13px; }
+  .topbar-actions { gap: 7px; }
+  .permission-modal { padding: 27px 17px 19px; }
+}
