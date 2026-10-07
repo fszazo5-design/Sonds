@@ -172,3 +172,5 @@ footer { display: flex; justify-content: space-between; padding: 25px 0; color: 
 @keyframes applause-pop { from { transform: scale(.95) rotate(-5deg); } to { transform: scale(1.13) rotate(5deg); } }
 @keyframes star-launch { 0% { transform: translate(-50%, -50%) scale(.1) rotate(0); opacity: 0; } 12% { opacity: 1; } 100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.15) rotate(300deg); opacity: 0; } }
 .score-rules { display: block; margin-top: 3px; color: #8a7e91; font-size: 10px; font-weight: 700; }
+.bottom-nav button.nav-item-calendar.nav-active { border-radius: 13px; background: #d9f7f2; color: #007e78; }
+.bottom-nav button.nav-item-calendar.nav-active svg { background: #bceee5; }
