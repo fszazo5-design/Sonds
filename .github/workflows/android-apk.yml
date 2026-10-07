@@ -82,15 +82,26 @@ jobs:
             -PappVersionName="$APP_VERSION" \
             -PuseStableDebugSigning="$IS_RELEASE" \
             -PstableDebugKeystorePath="$HOME/.android/debug.keystore"
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Sonds.apk"
+          SDK_PATH="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+          APKSIGNER=$(find "$SDK_PATH/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)
+          if [ "$IS_RELEASE" = true ]; then
+            "$APKSIGNER" sign \
+              --ks "$HOME/.android/debug.keystore" \
+              --ks-pass pass:android \
+              --ks-key-alias androiddebugkey \
+              --key-pass pass:android \
+              --out "$GITHUB_WORKSPACE/Sonds.apk" \
+              "$GITHUB_WORKSPACE/android/app/build/outputs/apk/debug/app-debug.apk"
+          else
+            cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Sonds.apk"
+          fi
           cd "$GITHUB_WORKSPACE"
           sha256sum Sonds.apk > Sonds.apk.sha256
           if [ "$IS_RELEASE" = true ]; then
-            SDK_PATH="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
-            APKSIGNER=$(find "$SDK_PATH/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)
             APK_CERT=$("$APKSIGNER" verify --print-certs Sonds.apk | sed -n 's/.*Signer #1 certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+            echo "APK signer certificate: $APK_CERT"
             if [ "$APK_CERT" != "$EXPECTED_CERT" ]; then
-              echo '::error::The built APK signer does not match the currently distributed app.'
+              echo "::error::Built APK signer mismatch. Expected $EXPECTED_CERT; received $APK_CERT."
               exit 1
             fi
           fi
