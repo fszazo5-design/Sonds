@@ -149,3 +149,26 @@ footer { display: flex; justify-content: space-between; padding: 25px 0; color: 
   .page-heading { margin-top: 10px; padding: 16px 17px; }
   .info-actions-card { padding: 18px 17px; }
 }
+.empty-rewards { padding: 17px 14px; border: 1px dashed #e8dce9; border-radius: 12px; background: #fcf9fd; color: #8a7e91; font-size: 12px; font-weight: 700; text-align: center; }
+.celebration-overlay { overflow: hidden; }
+.celebration-modal { z-index: 1; }
+.applause-emoji { margin: 4px auto 0; font-size: 42px; line-height: 1.1; animation: applause-pop .38s ease-in-out infinite alternate; transform-origin: center bottom; }
+.star-sparks { position: absolute; z-index: 0; inset: 0; overflow: hidden; pointer-events: none; }
+.star-sparks span { position: absolute; top: 48%; left: 50%; color: #ff007f; font-size: 28px; font-weight: 900; text-shadow: 0 3px 12px #ff84bf88; animation: star-launch 1.9s cubic-bezier(.15,.72,.35,1) both; }
+.star-sparks span:nth-child(3n) { color: #ffb400; font-size: 34px; }
+.star-sparks span:nth-child(3n + 1) { color: #00a5c0; }
+.star-sparks span:nth-child(1) { --dx: -42vw; --dy: -32vh; }
+.star-sparks span:nth-child(2) { --dx: -28vw; --dy: 32vh; animation-delay: .04s; }
+.star-sparks span:nth-child(3) { --dx: -16vw; --dy: -39vh; animation-delay: .08s; }
+.star-sparks span:nth-child(4) { --dx: 5vw; --dy: 39vh; animation-delay: .12s; }
+.star-sparks span:nth-child(5) { --dx: 20vw; --dy: -34vh; animation-delay: .16s; }
+.star-sparks span:nth-child(6) { --dx: 38vw; --dy: 25vh; animation-delay: .2s; }
+.star-sparks span:nth-child(7) { --dx: -46vw; --dy: 10vh; animation-delay: .24s; }
+.star-sparks span:nth-child(8) { --dx: 47vw; --dy: -12vh; animation-delay: .28s; }
+.star-sparks span:nth-child(9) { --dx: -8vw; --dy: 43vh; animation-delay: .32s; }
+.star-sparks span:nth-child(10) { --dx: 29vw; --dy: 38vh; animation-delay: .36s; }
+.star-sparks span:nth-child(11) { --dx: 12vw; --dy: -43vh; animation-delay: .4s; }
+.star-sparks span:nth-child(12) { --dx: -35vw; --dy: -5vh; animation-delay: .44s; }
+@keyframes applause-pop { from { transform: scale(.95) rotate(-5deg); } to { transform: scale(1.13) rotate(5deg); } }
+@keyframes star-launch { 0% { transform: translate(-50%, -50%) scale(.1) rotate(0); opacity: 0; } 12% { opacity: 1; } 100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.15) rotate(300deg); opacity: 0; } }
+.score-rules { display: block; margin-top: 3px; color: #8a7e91; font-size: 10px; font-weight: 700; }

@@ -124,13 +124,8 @@ const navigation: Array<{ Icon: ComponentType<LucideProps>; id: string; label: s
   { Icon: Info, id: 'info', label: 'معلومات' },
 ];
 
-const defaultRewards: Reward[] = [
-  { id: 1, title: 'اختاري فيلمك المفضل', note: 'مكافأة أول 7 أيام', unlocked: true },
-  { id: 2, title: 'نزهة ممتعة مع بابا', note: 'مكافأة 14 يوماً', unlocked: false },
-  { id: 3, title: 'مفاجأة كبيرة من بابا', note: 'عند الوصول إلى 100 يوم', unlocked: false },
-];
-
-type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[] };
+type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; achievementVersion?: number };
+const ACHIEVEMENT_SYSTEM_VERSION = 2;
 const readSavedPlan = (): PersistedPlan => {
   try {
     const nativeData = typeof window !== 'undefined' ? window.AndroidBridge?.loadState() : '';
@@ -183,15 +178,16 @@ const Chick = () => (
 function App() {
   const today = getToday();
   const [bootData] = useState(readSavedPlan);
+  const isCurrentAchievementSystem = bootData.achievementVersion === ACHIEVEMENT_SYSTEM_VERSION;
   const [meals, setMeals] = useState<Meal[]>(bootData.meals ?? defaultMeals);
-  const [checked, setChecked] = useState<Record<string, boolean>>(() => bootData.day?.date === today ? (bootData.day.checked || {}) : {});
-  const [streak, setStreak] = useState(bootData.day?.streak || 6);
-  const [rewards, setRewards] = useState<Reward[]>(bootData.rewards?.length ? bootData.rewards : defaultRewards);
+  const [checked, setChecked] = useState<Record<string, boolean>>(() => isCurrentAchievementSystem && bootData.day?.date === today ? (bootData.day.checked || {}) : {});
+  const [streak, setStreak] = useState(() => isCurrentAchievementSystem ? (bootData.day?.streak ?? 0) : 0);
+  const [rewards, setRewards] = useState<Reward[]>(() => isCurrentAchievementSystem ? (bootData.rewards ?? []) : []);
   const [now, setNow] = useState(() => new Date());
   const [showRewardForm, setShowRewardForm] = useState(false);
   const [showPermissionSettings, setShowPermissionSettings] = useState(false);
   const [rewardTitle, setRewardTitle] = useState('');
-  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationMeal, setCelebrationMeal] = useState<string | null>(null);
   const [activeNav, setActiveNav] = useState('home');
 
   useEffect(() => {
@@ -199,10 +195,23 @@ function App() {
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (!celebrationMeal) return;
+    const timer = window.setTimeout(() => setCelebrationMeal(null), 2600);
+    return () => window.clearTimeout(timer);
+  }, [celebrationMeal]);
+
   const completedCount = meals.filter((meal) => checked[meal.id]).length;
-  const score = completedCount * 20;
+  const currentMinute = now.getHours() * 60 + now.getMinutes();
+  const missedCount = meals.filter((meal) => {
+    if (checked[meal.id]) return false;
+    const [hour, minute] = meal.time.split(':').map(Number);
+    return hour * 60 + minute < currentMinute;
+  }).length;
+  const maxScore = meals.length * 2;
+  const score = completedCount * 2 - missedCount;
   const calories = meals.reduce((sum, meal) => sum + (checked[meal.id] ? meal.calories : 0), 0);
-  const progress = score;
+  const progress = maxScore > 0 ? Math.min(100, Math.max(0, (score / maxScore) * 100)) : 0;
   const allComplete = completedCount === meals.length;
   const nextMeal = meals.find((meal) => !checked[meal.id]);
 
@@ -211,6 +220,7 @@ function App() {
       day: { date: today, checked, completedMeals: meals.filter((meal) => checked[meal.id]).map((meal) => meal.id), score, streak },
       rewards,
       meals,
+      achievementVersion: ACHIEVEMENT_SYSTEM_VERSION,
     };
     try {
       localStorage.setItem('sondos-totti-plan', JSON.stringify(payload));
@@ -235,9 +245,9 @@ function App() {
   const toggleMeal = (id: string): void => {
     const wasChecked = checked[id];
     setChecked((current) => ({ ...current, [id]: !current[id] }));
-    if (!wasChecked && completedCount === meals.length - 1) {
-      setStreak((current) => current + 1);
-      setShowCelebration(true);
+    if (!wasChecked) {
+      setCelebrationMeal(meals.find((meal) => meal.id === id)?.title ?? 'الوجبة');
+      if (completedCount === meals.length - 1) setStreak((current) => current + 1);
     }
   };
 
@@ -268,15 +278,15 @@ function App() {
       </section>
 
       <section hidden={activeNav !== 'home' && activeNav !== 'trophy'} className="stats-grid">
-        <div className="stat-card score-stat"><div className="stat-icon pink-icon"><Zap size={21} fill="currentColor" /></div><div><strong>{score}<small>/ 100</small></strong><span>نقاط اليوم</span></div><div className="mini-progress"><span style={{ width: `${progress}%` }} /></div></div>
+        <div className="stat-card score-stat"><div className="stat-icon pink-icon"><Zap size={21} fill="currentColor" /></div><div><strong>{score}<small>/ {maxScore}</small></strong><span>نقاط اليوم</span></div><div className="mini-progress"><span style={{ width: `${progress}%` }} /></div></div>
         <div className="stat-card"><div className="stat-icon orange-icon"><Flame size={21} fill="currentColor" /></div><div><strong>{streak}<small> أيام</small></strong><span>إنجاز متتالي</span></div><span className="stat-arrow">↗</span></div>
         <div className="stat-card"><div className="stat-icon blue-icon"><Utensils size={21} /></div><div><strong>{calories}<small> / 1700</small></strong><span>سعرة مكتملة</span></div></div>
       </section>
 
       <section hidden={activeNav !== 'home' && activeNav !== 'trophy'} className="progress-panel">
-        <div className="progress-heading"><div><span className="section-kicker">رحلة اليوم</span><h2>مؤشر إنجازك</h2></div><div className="score-bubble">{score}<small>نقطة</small></div></div>
+        <div className="progress-heading"><div><span className="section-kicker">رحلة اليوم</span><h2>مؤشر إنجازك</h2><small className="score-rules">+2 للإتمام، و−1 بعد فوات الموعد دون إنجاز</small></div><div className="score-bubble">{score}<small>نقطة</small></div></div>
         <div className="big-progress"><div className="big-progress-fill" style={{ width: `${progress}%` }} /><div className="progress-star" style={{ right: `calc(${Math.max(progress, 8)}% - 18px)` }}><Star size={17} fill="currentColor" /></div></div>
-        <div className="progress-footer"><span>بداية اليوم</span><strong>{allComplete ? 'اكتمل اليوم بنجاح!' : `${completedCount} من ${meals.length} وجبات مكتملة`}</strong><span>100</span></div>
+        <div className="progress-footer"><span>بداية اليوم</span><strong>{allComplete ? 'اكتمل اليوم بنجاح!' : `${completedCount} من ${meals.length} وجبات مكتملة${missedCount ? ` — ${missedCount} فائتة` : ''}`}</strong><span>{maxScore}</span></div>
         <div className="totti-message"><Totti pose="wink" /><div><b>توتي يقول:</b><p>{tottiMessage}</p></div><Heart size={19} className="message-heart" fill="currentColor" /></div>
       </section>
 
@@ -297,9 +307,9 @@ function App() {
 
       <section hidden={activeNav !== 'trophy' && activeNav !== 'info'} className="bottom-grid single-panel">
         <div hidden={activeNav !== 'trophy'} className="reward-card">
-          <div className="card-heading"><div className="reward-heading-icon"><Gift size={21} /></div><div><span className="section-kicker">تحفيز خاص</span><h2>صندوق جوائز الأب السعيد</h2></div><Award size={24} className="heading-award" /></div>
-          <p className="card-description">كل إنجاز يقربك من مفاجأة حلوة! بابا يجهز لك الجوائز.</p>
-          <div className="rewards-list">{rewards.slice(0, 3).map((reward) => <div className={`reward-row ${reward.unlocked ? 'reward-unlocked' : ''}`} key={reward.id}><span className="reward-status">{reward.unlocked ? <Gift size={17} /> : <LockKeyhole size={16} />}</span><div><b>{reward.title}</b><small>{reward.note}</small></div><ChevronLeft size={17} /></div>)}</div>
+          <div className="card-heading"><div className="reward-heading-icon"><Gift size={21} /></div><div><span className="section-kicker">تحفيز خاص</span><h2>صندوق الإنجازات</h2></div><Award size={24} className="heading-award" /></div>
+          <p className="card-description">إنجازاتك الجديدة ستظهر هنا بعد البدء بنظام النقاط المحدّث.</p>
+          <div className="rewards-list">{rewards.length === 0 ? <div className="empty-rewards">صندوق الإنجازات فارغ الآن. ابدئي وجمّعي نقاطك!</div> : rewards.slice(0, 3).map((reward) => <div className={`reward-row ${reward.unlocked ? 'reward-unlocked' : ''}`} key={reward.id}><span className="reward-status">{reward.unlocked ? <Gift size={17} /> : <LockKeyhole size={16} />}</span><div><b>{reward.title}</b><small>{reward.note}</small></div><ChevronLeft size={17} /></div>)}</div>
           {showRewardForm ? <div className="reward-form"><input autoFocus value={rewardTitle} onChange={(event) => setRewardTitle(event.target.value)} placeholder="اكتبي اسم المكافأة" onKeyDown={(event) => event.key === 'Enter' && addReward()} /><button onClick={addReward}>إضافة</button></div> : <button className="add-reward" onClick={() => setShowRewardForm(true)}><Plus size={17} /> إضافة مكافأة جديدة</button>}
         </div>
         <div hidden={activeNav !== 'info'} className="tip-card"><div className="tip-icon"><CircleHelp size={25} /></div><span className="section-kicker">نصيحة توتي</span><h2>الماء سر النشاط!</h2><p>حاولي تشربي من 6 إلى 8 أكواب مياه على مدار اليوم، جسمك هيشكرك.</p><div className="water-drops"><span>💧</span><span>💧</span><span>💧</span><span>💧</span><span>+</span></div></div>
@@ -313,7 +323,7 @@ function App() {
 
       <nav className="bottom-nav" aria-label="التنقل بين صفحات التطبيق">{navigation.map(({ Icon, id, label }) => <button key={id} aria-current={activeNav === id ? 'page' : undefined} className={activeNav === id ? 'nav-active' : ''} onClick={() => { setActiveNav(id); window.scrollTo(0, 0); }}><Icon size={20} /><span>{label}</span></button>)}</nav>
 
-      {showCelebration && <div className="celebration-overlay"><div className="confetti confetti-a" /><div className="confetti confetti-b" /><div className="celebration-modal"><button className="close-modal" onClick={() => setShowCelebration(false)}><X size={18} /></button><div className="celebration-badge"><Trophy size={39} /></div><Totti celebrate /><span className="section-kicker">إنجاز رائع!</span><h2>مبروك يا بطلة!</h2><p>خلصتي كل وجباتك اليوم. توتي بيحتفل بيكي وبيشجعك تكملي.</p><div className="celebration-score"><Sparkles size={18} /> +100 نقطة اليوم</div><button className="primary-button" onClick={() => setShowCelebration(false)}>نكمل الرحلة <ChevronLeft size={18} /></button></div></div>}
+      {celebrationMeal && <div className="celebration-overlay"><div className="star-sparks" aria-hidden="true"><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span></div><div className="celebration-modal" role="dialog" aria-modal="true" aria-label="تهنئة إتمام الوجبة"><button className="close-modal" onClick={() => setCelebrationMeal(null)} aria-label="إغلاق التهنئة"><X size={18} /></button><div className="applause-emoji" aria-hidden="true">👏</div><Totti celebrate /><span className="section-kicker">تصفيق لكِ!</span><h2>أحسنتِ يا بطلة!</h2><p>أتممتِ {celebrationMeal} بنجاح. استمري في رحلتك!</p><div className="celebration-score"><Sparkles size={18} /> +2 نقطة إنجاز</div><button className="primary-button" onClick={() => setCelebrationMeal(null)}>رائع! <ChevronLeft size={18} /></button></div></div>}
     </main>
   );
 }
