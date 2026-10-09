@@ -333,3 +333,7 @@ footer { display: flex; justify-content: space-between; padding: 25px 0; color: 
 .startup-splash-content button { min-height: 44px; padding: 0 24px; border: 1px solid #ffffffaa; border-radius: 14px; background: #fff; color: #a90057; font: inherit; font-size: 13px; font-weight: 900; text-shadow: none; box-shadow: 0 7px 24px #16081745; }
 .startup-splash-content button:active { transform: scale(.97); }
 @media (prefers-reduced-motion: reduce) { .startup-splash-video { display: none; } }
+
+.startup-splash-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.startup-splash-content .startup-splash-sound { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-color: #ffffffb5; background: #321d3dcc; color: #fff; backdrop-filter: blur(8px); }
+.startup-splash-content .startup-splash-skip { background: #fff; color: #a90057; }

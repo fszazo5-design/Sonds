@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 import {
   Activity,
@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import JumpRopeActivity, { type JumpRopeStats } from './components/JumpRopeActivity';
 import favoriteSongVideo from './assets/favorite-song-with-sundus.mp4';
-import startupIntroVideo from './assets/startup-intro.mp4';
+import startupVideo from './assets/startup-video.mp4';
 import startupIntroPoster from './assets/startup-intro-poster.jpg';
 
 type Meal = {
@@ -168,7 +168,9 @@ function App() {
   const [streak, setStreak] = useState(() => isCurrentAchievementSystem ? (bootData.day?.streak ?? 0) : 0);
   const [rewards, setRewards] = useState<Reward[]>(() => isCurrentAchievementSystem ? (bootData.rewards ?? []) : []);
   const [now, setNow] = useState(() => new Date());
+  const startupVideoRef = useRef<HTMLVideoElement>(null);
   const [showStartupSplash, setShowStartupSplash] = useState(true);
+  const [startupAudioEnabled, setStartupAudioEnabled] = useState(false);
   const [showRewardForm, setShowRewardForm] = useState(false);
   const [showPermissionSettings, setShowPermissionSettings] = useState(false);
   const [showFavoriteSong, setShowFavoriteSong] = useState(false);
@@ -195,12 +197,6 @@ function App() {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(timer);
   }, []);
-
-  useEffect(() => {
-    if (!showStartupSplash) return;
-    const fallbackTimer = window.setTimeout(() => setShowStartupSplash(false), 8000);
-    return () => window.clearTimeout(fallbackTimer);
-  }, [showStartupSplash]);
 
   useEffect(() => {
     const pageFromHash = window.location.hash.slice(1);
@@ -366,9 +362,10 @@ function App() {
       {showStartupSplash && (
         <section className="startup-splash" role="dialog" aria-modal="true" aria-label="شاشة بدء سندس">
           <video
+            ref={startupVideoRef}
             className="startup-splash-video"
             autoPlay
-            muted
+            muted={!startupAudioEnabled}
             playsInline
             preload="auto"
             poster={startupIntroPoster}
@@ -376,14 +373,28 @@ function App() {
             onError={() => setShowStartupSplash(false)}
             aria-hidden="true"
           >
-            <source src={startupIntroVideo} type="video/mp4" />
+            <source src={startupVideo} type="video/mp4" />
           </video>
           <div className="startup-splash-shade" />
           <div className="startup-splash-content">
             <span className="startup-splash-mark">✦ سندس دي أنا ✦</span>
             <h1>يوم جديد، بداية جميلة</h1>
-            <p>خطوة صغيرة اليوم تصنع فرقًا كبيرًا</p>
-            <button type="button" onClick={() => setShowStartupSplash(false)}>تخطي والدخول</button>
+            <p>استمتعي بالفيديو كاملًا، أو ادخلي إلى التطبيق في أي وقت</p>
+            <div className="startup-splash-actions">
+              <button
+                type="button"
+                className="startup-splash-sound"
+                aria-pressed={startupAudioEnabled}
+                onClick={() => {
+                  const enableAudio = !startupAudioEnabled;
+                  if (startupVideoRef.current) startupVideoRef.current.muted = !enableAudio;
+                  setStartupAudioEnabled(enableAudio);
+                }}
+              >
+                <Music2 size={16} /> {startupAudioEnabled ? 'كتم الصوت' : 'تشغيل الصوت'}
+              </button>
+              <button type="button" className="startup-splash-skip" onClick={() => setShowStartupSplash(false)}>تخطي والدخول</button>
+            </div>
           </div>
         </section>
       )}
