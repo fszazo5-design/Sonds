@@ -61,7 +61,7 @@ internal class MealAlarmScheduler(private val context: Context) {
     companion object {
         const val EXTRA_MEAL_ID = "meal_id"
         // Android keeps notification-channel sound immutable; use a fresh ID for the new track.
-        const val CHANNEL_ID = "meal_schedule_with_audio_v2"
+        const val CHANNEL_ID = "meal_schedule_with_audio_v3"
 
         fun ensureChannel(context: Context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
