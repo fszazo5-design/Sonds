@@ -337,3 +337,13 @@ footer { display: flex; justify-content: space-between; padding: 25px 0; color: 
 .startup-splash-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .startup-splash-content .startup-splash-sound { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-color: #ffffffb5; background: #321d3dcc; color: #fff; backdrop-filter: blur(8px); }
 .startup-splash-content .startup-splash-skip { background: #fff; color: #a90057; }
+
+
+/* Android startup: fit the complete 16:9 frame inside the available screen without cropping. */
+.startup-splash { display: grid; place-items: center; align-items: stretch; background: #000; }
+.startup-splash-video { object-fit: contain; object-position: center center; background: #000; }
+.startup-splash-shade, .startup-splash-content { display: none; }
+.startup-splash-controls { position: absolute; z-index: 4; right: calc(12px + env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom)); display: flex; gap: 10px; pointer-events: none; }
+.startup-splash-control { display: grid; width: 46px; height: 46px; place-items: center; padding: 0; border: 1px solid #ffffffa6; border-radius: 50%; background: #201629b8; color: #fff; box-shadow: 0 4px 16px #0008; backdrop-filter: blur(8px); pointer-events: auto; }
+.startup-splash-control:active { transform: scale(.93); }
+@media (max-width: 520px) { .startup-splash-controls { right: calc(10px + env(safe-area-inset-right)); bottom: calc(10px + env(safe-area-inset-bottom)); gap: 8px; } .startup-splash-control { width: 43px; height: 43px; } }

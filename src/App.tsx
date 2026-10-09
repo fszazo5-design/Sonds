@@ -29,6 +29,8 @@ import {
   ShieldCheck,
   Trophy,
   Utensils,
+  Volume2,
+  VolumeX,
   X,
   Zap,
   type LucideProps,
@@ -375,26 +377,28 @@ function App() {
           >
             <source src={startupVideo} type="video/mp4" />
           </video>
-          <div className="startup-splash-shade" />
-          <div className="startup-splash-content">
-            <span className="startup-splash-mark">✦ سندس دي أنا ✦</span>
-            <h1>يوم جديد، بداية جميلة</h1>
-            <p>استمتعي بالفيديو كاملًا، أو ادخلي إلى التطبيق في أي وقت</p>
-            <div className="startup-splash-actions">
-              <button
-                type="button"
-                className="startup-splash-sound"
-                aria-pressed={startupAudioEnabled}
-                onClick={() => {
-                  const enableAudio = !startupAudioEnabled;
-                  if (startupVideoRef.current) startupVideoRef.current.muted = !enableAudio;
-                  setStartupAudioEnabled(enableAudio);
-                }}
-              >
-                <Music2 size={16} /> {startupAudioEnabled ? 'كتم الصوت' : 'تشغيل الصوت'}
-              </button>
-              <button type="button" className="startup-splash-skip" onClick={() => setShowStartupSplash(false)}>تخطي والدخول</button>
-            </div>
+          <div className="startup-splash-controls">
+            <button
+              type="button"
+              className="startup-splash-control"
+              aria-label={startupAudioEnabled ? 'كتم صوت الفيديو' : 'تشغيل صوت الفيديو'}
+              aria-pressed={startupAudioEnabled}
+              onClick={() => {
+                const enableAudio = !startupAudioEnabled;
+                if (startupVideoRef.current) startupVideoRef.current.muted = !enableAudio;
+                setStartupAudioEnabled(enableAudio);
+              }}
+            >
+              {startupAudioEnabled ? <Volume2 size={21} /> : <VolumeX size={21} />}
+            </button>
+            <button
+              type="button"
+              className="startup-splash-control"
+              aria-label="تخطي والدخول إلى التطبيق"
+              onClick={() => setShowStartupSplash(false)}
+            >
+              <X size={21} />
+            </button>
           </div>
         </section>
       )}
