@@ -35,6 +35,8 @@ import {
 } from 'lucide-react';
 import JumpRopeActivity, { type JumpRopeStats } from './components/JumpRopeActivity';
 import favoriteSongVideo from './assets/favorite-song-with-sundus.mp4';
+import startupIntroVideo from './assets/startup-intro.mp4';
+import startupIntroPoster from './assets/startup-intro-poster.jpg';
 
 type Meal = {
   id: string;
@@ -166,6 +168,7 @@ function App() {
   const [streak, setStreak] = useState(() => isCurrentAchievementSystem ? (bootData.day?.streak ?? 0) : 0);
   const [rewards, setRewards] = useState<Reward[]>(() => isCurrentAchievementSystem ? (bootData.rewards ?? []) : []);
   const [now, setNow] = useState(() => new Date());
+  const [showStartupSplash, setShowStartupSplash] = useState(true);
   const [showRewardForm, setShowRewardForm] = useState(false);
   const [showPermissionSettings, setShowPermissionSettings] = useState(false);
   const [showFavoriteSong, setShowFavoriteSong] = useState(false);
@@ -192,6 +195,12 @@ function App() {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!showStartupSplash) return;
+    const fallbackTimer = window.setTimeout(() => setShowStartupSplash(false), 8000);
+    return () => window.clearTimeout(fallbackTimer);
+  }, [showStartupSplash]);
 
   useEffect(() => {
     const pageFromHash = window.location.hash.slice(1);
@@ -354,6 +363,30 @@ function App() {
 
   return (
     <main dir="rtl" className="app-shell">
+      {showStartupSplash && (
+        <section className="startup-splash" role="dialog" aria-modal="true" aria-label="شاشة بدء سندس">
+          <video
+            className="startup-splash-video"
+            autoPlay
+            muted
+            playsInline
+            preload="auto"
+            poster={startupIntroPoster}
+            onEnded={() => setShowStartupSplash(false)}
+            onError={() => setShowStartupSplash(false)}
+            aria-hidden="true"
+          >
+            <source src={startupIntroVideo} type="video/mp4" />
+          </video>
+          <div className="startup-splash-shade" />
+          <div className="startup-splash-content">
+            <span className="startup-splash-mark">✦ سندس دي أنا ✦</span>
+            <h1>يوم جديد، بداية جميلة</h1>
+            <p>خطوة صغيرة اليوم تصنع فرقًا كبيرًا</p>
+            <button type="button" onClick={() => setShowStartupSplash(false)}>تخطي والدخول</button>
+          </div>
+        </section>
+      )}
       <div className="topbar">
         <div className="brand-mark"><span className="brand-paw">✦</span><div><strong>سندس دي أنا</strong><small>خطتي الصحية</small></div></div>
         <div className="topbar-actions"><button className="icon-button" aria-label="طلب إذن الإشعارات" onClick={() => window.AndroidBridge?.requestNotificationPermission()}><Bell size={19} /><i /></button><button className="icon-button update-button" type="button" aria-label="تحديث الواجهة" title="تحديث الواجهة" onClick={() => window.AndroidBridge?.refreshWebApp()}><Download size={16} /></button><button className="icon-button" aria-label="إعدادات الأذونات" onClick={() => setShowPermissionSettings(true)}><ShieldCheck size={19} /></button><div className="profile-badge">س</div></div>

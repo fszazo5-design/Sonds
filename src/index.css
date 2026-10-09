@@ -320,3 +320,16 @@ footer { display: flex; justify-content: space-between; padding: 25px 0; color: 
   .meal-order-controls { flex-wrap: wrap; }
   .meal-order-controls button { width: 24px; }
 }
+
+
+/* Short video intro shown while the app opens; users can enter immediately. */
+.startup-splash { position: fixed; z-index: 1000; inset: 0; display: flex; align-items: end; justify-content: center; overflow: hidden; background: #281633; color: #fff; }
+.startup-splash-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.startup-splash-shade { position: absolute; inset: 0; background: linear-gradient(180deg, #24152a08 5%, #24152a10 42%, #24152ad9 100%); pointer-events: none; }
+.startup-splash-content { position: relative; z-index: 1; display: flex; width: min(100%, 520px); flex-direction: column; align-items: center; padding: 30px 22px max(32px, env(safe-area-inset-bottom)); text-align: center; text-shadow: 0 2px 14px #17091d80; }
+.startup-splash-mark { margin-bottom: 9px; color: #fff3a5; font-size: 13px; font-weight: 900; letter-spacing: .3px; }
+.startup-splash-content h1 { margin: 0; color: #fff; font-size: clamp(27px, 7vw, 38px); font-weight: 900; line-height: 1.25; }
+.startup-splash-content p { margin: 7px 0 20px; color: #fff; font-size: 14px; font-weight: 700; }
+.startup-splash-content button { min-height: 44px; padding: 0 24px; border: 1px solid #ffffffaa; border-radius: 14px; background: #fff; color: #a90057; font: inherit; font-size: 13px; font-weight: 900; text-shadow: none; box-shadow: 0 7px 24px #16081745; }
+.startup-splash-content button:active { transform: scale(.97); }
+@media (prefers-reduced-motion: reduce) { .startup-splash-video { display: none; } }
