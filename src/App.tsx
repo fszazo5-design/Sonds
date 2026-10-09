@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
 import {
   Activity,
+  ArrowDown,
+  ArrowUp,
   Award,
   Bell,
   CalendarDays,
@@ -19,7 +21,9 @@ import {
   LockKeyhole,
   Mic,
   Music2,
+  Pencil,
   Plus,
+  Save,
   Sparkles,
   Star,
   ShieldCheck,
@@ -42,6 +46,8 @@ type Meal = {
   icon: string;
   items: string[];
 };
+
+type MealDraft = { title: string; label: string; time: string; calories: string; items: string };
 
 type SavedDay = {
   date: string;
@@ -153,6 +159,9 @@ function App() {
   const [bootData] = useState(readSavedPlan);
   const isCurrentAchievementSystem = bootData.achievementVersion === ACHIEVEMENT_SYSTEM_VERSION;
   const [meals, setMeals] = useState<Meal[]>(bootData.meals ?? defaultMeals);
+  const [mealEditor, setMealEditor] = useState<{ mealId: string | null; draft: MealDraft } | null>(null);
+  const [mealEditorError, setMealEditorError] = useState('');
+  const [mealSaveNotice, setMealSaveNotice] = useState('');
   const [checked, setChecked] = useState<Record<string, boolean>>(() => isCurrentAchievementSystem && bootData.day?.date === today ? (bootData.day.checked || {}) : {});
   const [streak, setStreak] = useState(() => isCurrentAchievementSystem ? (bootData.day?.streak ?? 0) : 0);
   const [rewards, setRewards] = useState<Reward[]>(() => isCurrentAchievementSystem ? (bootData.rewards ?? []) : []);
@@ -264,6 +273,69 @@ function App() {
 
 
 
+  const startMealEdit = (meal: Meal): void => {
+    setMealEditor({ mealId: meal.id, draft: { title: meal.title, label: meal.label, time: meal.time, calories: String(meal.calories), items: meal.items.join('\n') } });
+    setMealEditorError('');
+  };
+
+  const startMealAdd = (): void => {
+    setMealEditor({ mealId: null, draft: { title: '', label: 'وجبة جديدة', time: '12:00', calories: '0', items: '' } });
+    setMealEditorError('');
+  };
+
+  const saveMealEdit = (): void => {
+    if (!mealEditor) return;
+    const title = mealEditor.draft.title.trim();
+    const caloriesValue = Number(mealEditor.draft.calories);
+    if (!title) { setMealEditorError('اكتبي اسم الوجبة أولاً.'); return; }
+    if (!Number.isFinite(caloriesValue) || caloriesValue < 0) { setMealEditorError('أدخلي سعرات صحيحة (صفر أو أكثر).'); return; }
+    const updated = {
+      title,
+      label: mealEditor.draft.label.trim() || 'وجبة',
+      time: mealEditor.draft.time,
+      calories: Math.round(caloriesValue),
+      items: mealEditor.draft.items.split('\n').map((item) => item.trim()).filter(Boolean),
+    };
+    if (mealEditor.mealId) {
+      setMeals((current) => current.map((meal) => meal.id === mealEditor.mealId ? { ...meal, ...updated } : meal));
+    } else {
+      const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      setMeals((current) => [...current, { id, ...updated, accent: 'pink', icon: '✦' }]);
+    }
+    setMealEditor(null);
+    setMealEditorError('');
+    setMealSaveNotice('تم حفظ الوجبة على هذا الجهاز.');
+    window.setTimeout(() => setMealSaveNotice(''), 3000);
+  };
+
+  const moveMeal = (mealId: string, offset: -1 | 1): void => {
+    setMeals((current) => {
+      const from = current.findIndex((meal) => meal.id === mealId);
+      const to = from + offset;
+      if (from < 0 || to < 0 || to >= current.length) return current;
+      const reordered = [...current];
+      [reordered[from], reordered[to]] = [reordered[to], reordered[from]];
+      return reordered;
+    });
+    setMealSaveNotice('تم تحديث ترتيب الوجبات وحفظه على هذا الجهاز.');
+    window.setTimeout(() => setMealSaveNotice(''), 3000);
+  };
+
+  const renderMealEditor = () => mealEditor && (
+    <div className="meal-editor-card" role="group" aria-label={mealEditor.mealId ? 'تعديل بيانات الوجبة' : 'إضافة وجبة جديدة'}>
+      <div className="meal-editor-heading"><div><span className="section-kicker">بيانات الوجبة</span><h3>{mealEditor.mealId ? 'تعديل الوجبة' : 'إضافة وجبة جديدة'}</h3></div></div>
+      <div className="meal-editor-fields">
+        <label>اسم الوجبة<input autoFocus value={mealEditor.draft.title} onChange={(event) => setMealEditor((current) => current ? { ...current, draft: { ...current.draft, title: event.target.value } } : current)} placeholder="مثال: وجبة خفيفة" /></label>
+        <label>وصف قصير<input value={mealEditor.draft.label} onChange={(event) => setMealEditor((current) => current ? { ...current, draft: { ...current.draft, label: event.target.value } } : current)} placeholder="مثال: وجبة بعد التمرين" /></label>
+        <label>الموعد<input type="time" value={mealEditor.draft.time} onChange={(event) => setMealEditor((current) => current ? { ...current, draft: { ...current.draft, time: event.target.value } } : current)} /></label>
+        <label>السعرات الحرارية<input type="number" min="0" step="1" inputMode="numeric" value={mealEditor.draft.calories} onChange={(event) => setMealEditor((current) => current ? { ...current, draft: { ...current.draft, calories: event.target.value } } : current)} /></label>
+        <label className="meal-items-field">مكونات الوجبة <small>اكتبي كل مكوّن في سطر منفصل</small><textarea rows={5} value={mealEditor.draft.items} onChange={(event) => setMealEditor((current) => current ? { ...current, draft: { ...current.draft, items: event.target.value } } : current)} placeholder={'مكوّن أول\nمكوّن ثانٍ'} /></label>
+      </div>
+      {mealEditorError && <p className="meal-editor-error" role="alert">{mealEditorError}</p>}
+      <div className="meal-editor-actions"><button type="button" className="meal-save-button" onClick={saveMealEdit}><Save size={16} /> حفظ على الجهاز</button><button type="button" className="meal-cancel-button" onClick={() => { setMealEditor(null); setMealEditorError(''); }}>إلغاء</button></div>
+    </div>
+  );
+
   const toggleMeal = (id: string): void => {
     const wasChecked = checked[id];
     setChecked((current) => ({ ...current, [id]: !current[id] }));
@@ -324,18 +396,21 @@ function App() {
       </section>
 
       <section hidden={activeNav !== 'calendar'} className="meal-section">
-        <div className="section-title-row"><div><span className="section-kicker">خطة التغذية</span><h2>وجباتك اليوم</h2></div><span className="target-pill"><span /> الهدف 1700 سعرة</span></div>
+        <div className="section-title-row"><div><span className="section-kicker">خطة التغذية</span><h2>وجباتك اليوم</h2></div><div className="meal-list-actions"><span className="target-pill"><span /> الهدف 1700 سعرة</span><button type="button" className="add-meal-button" onClick={startMealAdd}><Plus size={17} /> إضافة وجبة</button></div></div>
         <div className="meal-list">
-          {meals.map((meal) => {
+          {meals.map((meal, index) => {
             const isDone = Boolean(checked[meal.id]);
+            if (mealEditor?.mealId === meal.id) return <div className="meal-editor-card-wrap" key={meal.id}>{renderMealEditor()}</div>;
             return <article className={`meal-card meal-card-${meal.accent} ${isDone ? 'meal-done' : ''}`} key={meal.id}>
               <div className={`meal-icon meal-${meal.accent}`}>{meal.icon}</div>
-              <div className="meal-main"><div className="meal-topline"><div><span className="meal-label">{meal.label}</span><h3>{meal.title}</h3></div><label className="meal-time"><Clock size={15} /><input className="meal-time-input" type="time" value={meal.time} aria-label={`موعد ${meal.title}`} onChange={(event) => setMeals((current) => current.map((item) => item.id === meal.id ? { ...item, time: event.target.value } : item))} /><span className="meal-time-readable">{formatMealTime(meal.time)}</span></label></div><ul>{meal.items.map((item) => <li key={item}><span />{item}</li>)}</ul></div>
-              <div className="meal-side"><strong>{meal.calories}</strong><small>سعرة</small><button className={`check-button ${isDone ? 'checked' : ''}`} onClick={() => toggleMeal(meal.id)} aria-label={`تحديد ${meal.title}`}><Check size={22} strokeWidth={3} /></button></div>
+              <div className="meal-main"><div className="meal-topline"><div><span className="meal-label">{meal.label}</span><h3>{meal.title}</h3></div><label className="meal-time"><Clock size={15} /><input className="meal-time-input" type="time" value={meal.time} aria-label={`موعد ${meal.title}`} onChange={(event) => setMeals((current) => current.map((item) => item.id === meal.id ? { ...item, time: event.target.value } : item))} /><span className="meal-time-readable">{formatMealTime(meal.time)}</span></label></div><ul>{meal.items.map((item, itemIndex) => <li key={`${meal.id}-${itemIndex}`}><span />{item}</li>)}</ul></div>
+              <div className="meal-side"><div className="meal-order-controls"><button type="button" onClick={() => moveMeal(meal.id, -1)} disabled={index === 0} aria-label={`رفع ${meal.title} في الترتيب`} title="تحريك لأعلى"><ArrowUp size={15} /></button><button type="button" onClick={() => moveMeal(meal.id, 1)} disabled={index === meals.length - 1} aria-label={`خفض ${meal.title} في الترتيب`} title="تحريك لأسفل"><ArrowDown size={15} /></button><button type="button" onClick={() => startMealEdit(meal)} aria-label={`تعديل ${meal.title}`} title="تعديل الوجبة"><Pencil size={15} /></button></div><strong>{meal.calories}</strong><small>سعرة</small><button className={`check-button ${isDone ? 'checked' : ''}`} onClick={() => toggleMeal(meal.id)} aria-label={`تحديد ${meal.title}`}><Check size={22} strokeWidth={3} /></button></div>
               {isDone && <div className="done-ribbon">تمت <Check size={12} /></div>}
             </article>;
           })}
+          {mealEditor?.mealId === null && renderMealEditor()}
         </div>
+        {mealSaveNotice && <p className="meal-save-notice" role="status" aria-live="polite">{mealSaveNotice}</p>}
       </section>
 
       <JumpRopeActivity active={activeNav === 'jump-rope'} breakfastComplete={Boolean(checked.breakfast)} stats={jumpRopeStats} onSessionComplete={recordJumpRopeSession} />

@@ -286,3 +286,37 @@ footer { display: flex; justify-content: space-between; padding: 25px 0; color: 
   .favorite-song-modal-heading h2 { font-size: 17px; }
   .favorite-song-video { border-radius: 11px; }
 }
+
+
+/* Editable meal cards and local-save controls */
+.meal-list-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.add-meal-button, .meal-save-button, .meal-cancel-button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 12px; border: 0; border-radius: 10px; font-size: 11px; font-weight: 900; }
+.add-meal-button { background: #ff007f; color: #fff; }
+.meal-side { justify-content: flex-start; gap: 5px; }
+.meal-order-controls { display: flex; align-items: center; justify-content: center; gap: 2px; }
+.meal-order-controls button { width: 25px; height: 27px; display: grid; place-items: center; padding: 0; border: 1px solid #e9e1eb; border-radius: 7px; background: #fff; color: #71627a; }
+.meal-order-controls button:disabled { opacity: .35; cursor: not-allowed; }
+.meal-order-controls button:not(:disabled):hover { border-color: #ff007f; color: #ff007f; }
+.meal-editor-card-wrap, .meal-editor-card { grid-column: 1 / -1; }
+.meal-editor-card { padding: 20px; border: 1px solid #eadde8; border-radius: 18px; background: #fffafd; box-shadow: 0 8px 22px #4b315b0c; }
+.meal-editor-heading h3 { margin: 2px 0 14px; font-size: 20px; font-weight: 900; }
+.meal-editor-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.meal-editor-fields label { display: grid; align-content: start; gap: 5px; color: #62546d; font-size: 11px; font-weight: 800; }
+.meal-editor-fields input, .meal-editor-fields textarea { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid #e4dbe8; border-radius: 9px; background: #fff; color: #35243c; font: inherit; font-size: 13px; }
+.meal-editor-fields input:focus, .meal-editor-fields textarea:focus { outline: 2px solid #ffd0e4; border-color: #ff007f; }
+.meal-editor-fields textarea { resize: vertical; line-height: 1.7; }
+.meal-editor-fields small { color: #97899d; font-size: 10px; font-weight: 600; }
+.meal-items-field { grid-column: 1 / -1; }
+.meal-editor-error { margin: 10px 0 0; color: #bd204c; font-size: 11px; font-weight: 800; }
+.meal-editor-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.meal-save-button { background: #00be79; color: #fff; }
+.meal-cancel-button { border: 1px solid #e5dce7; background: #fff; color: #695a72; }
+.meal-save-notice { margin: 10px 2px 0; color: #00895d; font-size: 11px; font-weight: 800; }
+@media (max-width: 520px) {
+  .meal-list-actions { justify-content: flex-start; margin-top: 9px; }
+  .meal-editor-card { padding: 16px 13px; }
+  .meal-editor-fields { grid-template-columns: 1fr; gap: 9px; }
+  .meal-items-field { grid-column: auto; }
+  .meal-order-controls { flex-wrap: wrap; }
+  .meal-order-controls button { width: 24px; }
+}
