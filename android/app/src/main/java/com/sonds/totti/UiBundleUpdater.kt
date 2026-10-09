@@ -68,7 +68,7 @@ internal class UiBundleUpdater(context: Context) {
         require(sha256(archive) == expectedSha256) { "فشل التحقق من سلامة حزمة الواجهة" }
         installArchive(archive, version)
         archive.delete()
-        UiBundleRefreshResult(updated = true)
+        return UiBundleRefreshResult(updated = true)
     }
 
     private fun installArchive(archive: File, version: String) {
