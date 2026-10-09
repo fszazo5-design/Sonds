@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ComponentType } from 'react';
 import {
+  Activity,
   Award,
   Bell,
   CalendarDays,
@@ -27,6 +28,7 @@ import {
   Zap,
   type LucideProps,
 } from 'lucide-react';
+import JumpRopeActivity, { type JumpRopeStats } from './components/JumpRopeActivity';
 
 type Meal = {
   id: string;
@@ -53,6 +55,8 @@ type Reward = {
   note: string;
   unlocked: boolean;
 };
+
+type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: JumpRopeStats; achievementVersion?: number };
 
 const defaultMeals: Meal[] = [
   {
@@ -121,10 +125,10 @@ const navigation: Array<{ Icon: ComponentType<LucideProps>; id: string; label: s
   { Icon: LayoutDashboard, id: 'home', label: 'الرئيسية' },
   { Icon: CalendarDays, id: 'calendar', label: 'تقويمي' },
   { Icon: Trophy, id: 'trophy', label: 'إنجازاتي' },
+  { Icon: Activity, id: 'jump-rope', label: 'نط الحبل' },
   { Icon: Info, id: 'info', label: 'معلومات' },
 ];
 
-type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; achievementVersion?: number };
 const ACHIEVEMENT_SYSTEM_VERSION = 2;
 const readSavedPlan = (): PersistedPlan => {
   try {
@@ -189,6 +193,15 @@ function App() {
   const [rewardTitle, setRewardTitle] = useState('');
   const [celebrationMeal, setCelebrationMeal] = useState<string | null>(null);
   const [activeNav, setActiveNav] = useState('home');
+  const [jumpRopeStats, setJumpRopeStats] = useState<JumpRopeStats>(() => bootData.jumpRope ?? { sessions: 0, totalJumps: 0, bestJumps: 0 });
+
+  const recordJumpRopeSession = (jumps: number): void => {
+    setJumpRopeStats((current) => ({
+      sessions: current.sessions + 1,
+      totalJumps: current.totalJumps + jumps,
+      bestJumps: Math.max(current.bestJumps, jumps),
+    }));
+  };
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
@@ -220,6 +233,7 @@ function App() {
       day: { date: today, checked, completedMeals: meals.filter((meal) => checked[meal.id]).map((meal) => meal.id), score, streak },
       rewards,
       meals,
+      jumpRope: jumpRopeStats,
       achievementVersion: ACHIEVEMENT_SYSTEM_VERSION,
     };
     try {
@@ -228,7 +242,7 @@ function App() {
       // SQLite through the Android bridge remains the durable source on file-based WebView origins.
     }
     window.AndroidBridge?.saveState(JSON.stringify(payload));
-  }, [checked, meals, rewards, score, streak, today]);
+  }, [checked, meals, rewards, jumpRopeStats, score, streak, today]);
 
   useEffect(() => {
     window.AndroidBridge?.saveSchedule(JSON.stringify(meals.map(({ id, title, time }) => ({ id, title, time }))));
@@ -265,7 +279,7 @@ function App() {
         <div className="topbar-actions"><button className="icon-button" aria-label="طلب إذن الإشعارات" onClick={() => window.AndroidBridge?.requestNotificationPermission()}><Bell size={19} /><i /></button><button className="icon-button update-button" type="button" aria-label="تحديث واجهة التطبيق عبر الإنترنت" title="تحديث الواجهة الهوائي" onClick={() => window.AndroidBridge?.refreshWebApp()}><Download size={17} /></button><button className="icon-button" aria-label="إعدادات الأذونات" onClick={() => setShowPermissionSettings(true)}><ShieldCheck size={19} /></button><div className="profile-badge">س</div></div>
       </div>
 
-      {activeNav !== 'home' && <section className="page-heading"><div><span className="section-kicker">سندس دي أنا</span><h1>{navigation.find((item) => item.id === activeNav)?.label}</h1><p>{activeNav === 'calendar' ? 'مواعيد وجباتك وخطتك اليومية في مكان واحد.' : activeNav === 'trophy' ? 'تابعي تقدمك والجوائز التي حققتها.' : 'معلومات ونصائح وإعدادات التطبيق.'}</p></div></section>}
+      {activeNav !== 'home' && <section className="page-heading"><div><span className="section-kicker">سندس دي أنا</span><h1>{navigation.find((item) => item.id === activeNav)?.label}</h1><p>{activeNav === 'calendar' ? 'مواعيد وجباتك وخطتك اليومية في مكان واحد.' : activeNav === 'trophy' ? 'تابعي تقدمك والجوائز التي حققتها.' : activeNav === 'jump-rope' ? 'تحدّي حركة ممتع بعد الإفطار، في صفحة مستقلة.' : 'معلومات ونصائح وإعدادات التطبيق.'}</p></div></section>}
 
       <section hidden={activeNav !== 'home'} className="hero-card">
         <div className="hero-copy">
@@ -275,6 +289,12 @@ function App() {
           <div className="hero-meta"><div className="date-chip"><CalendarDays size={16} /> {new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' }).format(now)}</div><div className="clock-chip"><div className="analog-clock" aria-label="ساعة متحركة"><span className="clock-hand clock-hour" style={{ transform: `rotate(${(now.getHours() % 12) * 30 + now.getMinutes() / 2}deg)` }} /><span className="clock-hand clock-minute" style={{ transform: `rotate(${now.getMinutes() * 6 + now.getSeconds() / 10}deg)` }} /><span className="clock-hand clock-second" style={{ transform: `rotate(${now.getSeconds() * 6}deg)` }} /><i /></div><div><strong>{new Intl.DateTimeFormat('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(now)}</strong><small>{nextMeal ? `الوجبة التالية: ${nextMeal.title} — ${formatMealTime(nextMeal.time)}` : 'اكتملت وجبات اليوم'}</small></div></div></div>
         </div>
         <div className="hero-totti hero-characters"><div className="sparkle sparkle-one">✦</div><div className="sparkle sparkle-two">✧</div><Totti pose="wave" /><Chick /></div>
+      </section>
+
+      <section hidden={activeNav !== 'home'} className="jump-rope-promo">
+        <div className="jump-rope-promo-icon"><Activity size={21} /></div>
+        <div className="jump-rope-promo-copy"><span className="section-kicker">بعد الإفطار</span><h2>جولة حبل ونجوم؟</h2><p>{checked.breakfast ? 'سجّلتي الفطار! اختاري وقتًا تكونين فيه مرتاحة وابدئي التحدي.' : 'بعد تسجيل الفطار، ستجدين هنا تحدّي نط الحبل الممتع.'}</p></div>
+        <button type="button" onClick={() => { setActiveNav('jump-rope'); window.scrollTo(0, 0); }}>افتحي التحدّي <ChevronLeft size={17} /></button>
       </section>
 
       <section hidden={activeNav !== 'home' && activeNav !== 'trophy'} className="stats-grid">
@@ -304,6 +324,8 @@ function App() {
           })}
         </div>
       </section>
+
+      <JumpRopeActivity active={activeNav === 'jump-rope'} breakfastComplete={Boolean(checked.breakfast)} stats={jumpRopeStats} onSessionComplete={recordJumpRopeSession} />
 
       <section hidden={activeNav !== 'trophy' && activeNav !== 'info'} className="bottom-grid single-panel">
         <div hidden={activeNav !== 'trophy'} className="reward-card">

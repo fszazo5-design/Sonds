@@ -174,3 +174,109 @@ footer { display: flex; justify-content: space-between; padding: 25px 0; color: 
 .score-rules { display: block; margin-top: 3px; color: #8a7e91; font-size: 10px; font-weight: 700; }
 .bottom-nav button.nav-item-calendar.nav-active { border-radius: 13px; background: #d9f7f2; color: #007e78; }
 .bottom-nav button.nav-item-calendar.nav-active svg { background: #bceee5; }
+
+
+/* Optional jump-rope mini challenge */
+.jump-rope-promo { display: flex; align-items: center; gap: 14px; margin: 17px 0; padding: 15px 18px; border: 1px solid #f4d2e4; border-radius: 18px; background: linear-gradient(100deg, #fff7fb, #fff8df); }
+.jump-rope-promo-icon { width: 44px; height: 44px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 14px; background: #ffe2ef; color: #d50070; }
+.jump-rope-promo-copy { flex: 1; min-width: 0; }
+.jump-rope-promo-copy .section-kicker { font-size: 10px; }
+.jump-rope-promo-copy h2 { margin: 0; color: #3d2847; font-size: 16px; font-weight: 900; }
+.jump-rope-promo-copy p { margin: 2px 0 0; color: #76677d; font-size: 11px; line-height: 1.7; }
+.jump-rope-promo > button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; flex: 0 0 auto; padding: 10px 13px; border: 0; border-radius: 11px; background: #ff007f; color: #fff; font-size: 11px; font-weight: 900; }
+.jump-rope-page { margin: 14px 0 28px; }
+.jump-rope-hero { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, 34%); min-height: 300px; overflow: hidden; border: 1px solid #f4d3e4; border-radius: 24px; background: radial-gradient(circle at 78% 12%, #fff8c9 0, transparent 31%), linear-gradient(120deg, #fff2f8, #ffe7d8 60%, #fff5d8); box-shadow: 0 12px 28px #a32e6410; }
+.jump-rope-hero-copy { position: relative; z-index: 1; align-self: center; padding: 28px 34px; }
+.jump-rope-kicker { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px; color: #d50070; font-size: 11px; font-weight: 900; }
+.jump-rope-hero-copy h2 { margin: 0; color: #392444; font-size: clamp(26px, 4vw, 39px); font-weight: 900; line-height: 1.2; }
+.jump-rope-hero-copy p { max-width: 430px; margin: 9px 0 14px; color: #685a70; font-size: 13px; font-weight: 700; line-height: 1.8; }
+.jump-rope-reminder { display: inline-flex; align-items: center; gap: 6px; padding: 8px 11px; border: 1px solid #efd784; border-radius: 12px; background: #fff8d9; color: #805b00; font-size: 10px; font-weight: 800; }
+.jump-rope-art { position: relative; display: flex; min-width: 0; align-items: end; justify-content: center; padding: 8px 12px 0; }
+.jump-rope-art img { display: block; width: 100%; max-width: 285px; max-height: 300px; object-fit: contain; object-position: bottom center; filter: drop-shadow(0 10px 12px #77355020); }
+.jump-rope-art.jumping-now img { animation: rope-hop .43s ease-in-out infinite alternate; }
+.jump-art-star { position: absolute; color: #ffb400; font-size: 24px; text-shadow: 0 3px 10px #efa80035; animation: float 2.2s ease-in-out infinite; }
+.jump-art-star-one { top: 29px; right: 20px; }
+.jump-art-star-two { top: 92px; left: 14px; color: #ed4a9d; animation-delay: .6s; }
+.jump-rope-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(230px, .75fr); gap: 15px; margin-top: 15px; }
+.jump-game-card, .jump-stats-card { min-width: 0; padding: 21px; border: 1px solid #ece5ee; border-radius: 20px; background: #fff; box-shadow: 0 8px 24px #33203a08; }
+.jump-game-heading, .jump-stats-heading { display: flex; align-items: center; gap: 10px; }
+.jump-game-icon, .jump-stats-icon { width: 43px; height: 43px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 13px; background: #ffe4f0; color: #d50070; }
+.jump-game-heading h2, .jump-stats-heading h2 { margin: 0; color: #392444; font-size: 17px; font-weight: 900; }
+.jump-game-heading .section-kicker, .jump-stats-heading .section-kicker { font-size: 9px; }
+.jump-duration-picker { display: flex; gap: 8px; margin: 17px 0 12px; }
+.jump-duration-picker button { display: flex; flex: 1; align-items: center; justify-content: center; gap: 4px; min-height: 38px; border: 1px solid #e7dce9; border-radius: 11px; background: #fcf9fd; color: #675971; font-size: 12px; font-weight: 900; }
+.jump-duration-picker button small { font-size: 9px; font-weight: 700; }
+.jump-duration-picker button[aria-pressed="true"] { border-color: #ff87bd; background: #ffecf5; color: #bd005f; box-shadow: inset 0 0 0 1px #ffb8d6; }
+.jump-duration-picker button:disabled { opacity: .62; }
+.jump-round-status { display: flex; align-items: center; justify-content: space-around; gap: 10px; padding: 13px; border-radius: 16px; background: linear-gradient(110deg, #fff6fb, #fff9e6); }
+.jump-timer { color: #392444; font: 900 37px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 1px; direction: ltr; }
+.jump-counter { display: flex; flex-direction: column; align-items: center; min-width: 76px; padding-right: 14px; border-right: 1px solid #ebdfe9; }
+.jump-counter strong { color: #d50070; font-size: 24px; line-height: 1.1; }
+.jump-counter span { color: #897c8e; font-size: 10px; font-weight: 800; }
+.jump-progress { height: 8px; margin: 13px 2px 8px; overflow: hidden; border-radius: 10px; background: #f1eaf1; }
+.jump-progress span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ff007f, #ffb400); transition: width .3s linear; }
+.jump-count-button { display: flex; width: 139px; height: 139px; flex-direction: column; align-items: center; justify-content: center; gap: 1px; margin: 10px auto 12px; border: 7px solid #ffe4f0; border-radius: 50%; background: radial-gradient(circle at 35% 28%, #ff54a5, #ed006f 74%); color: #fff; box-shadow: 0 7px 0 #c90061, 0 12px 22px #df147344; transition: transform .15s, box-shadow .15s, opacity .15s; }
+.jump-count-button:active:not(:disabled) { transform: translateY(4px) scale(.97); box-shadow: 0 3px 0 #c90061; }
+.jump-count-button:disabled { cursor: not-allowed; opacity: .55; filter: saturate(.65); }
+.jump-count-button-number { font-size: 22px; font-weight: 900; line-height: 1.1; }
+.jump-count-button strong { font-size: 20px; font-weight: 900; }
+.jump-count-button small { color: #ffe8f3; font-size: 9px; font-weight: 700; }
+.jump-tap-pulse { animation: jump-tap .2s ease-out; }
+.jump-game-controls { display: flex; justify-content: center; gap: 8px; }
+.jump-start-button, .jump-reset-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 41px; padding: 0 14px; border: 0; border-radius: 11px; font-size: 11px; font-weight: 900; }
+.jump-start-button { background: #ff007f; color: #fff; box-shadow: 0 4px 10px #ff007f30; }
+.jump-reset-button { border: 1px solid #e8e0e9; background: #fff; color: #71647a; }
+.jump-count-note { margin: 11px 0 0; color: #8d8294; font-size: 10px; line-height: 1.7; text-align: center; }
+.jump-finish-banner { display: flex; align-items: center; gap: 8px; margin-top: 13px; padding: 10px 12px; border: 1px solid #ffe081; border-radius: 12px; background: #fff9df; color: #bb7c00; }
+.jump-finish-banner > div { flex: 1; }
+.jump-finish-banner strong, .jump-finish-banner span { display: block; }
+.jump-finish-banner strong { color: #815a00; font-size: 11px; }
+.jump-finish-banner span { margin-top: 2px; color: #806e47; font-size: 9px; line-height: 1.6; }
+.jump-stats-card { display: flex; flex-direction: column; gap: 11px; background: linear-gradient(160deg, #fff, #fff9fc); }
+.jump-stats-icon { background: #fff4c9; color: #b27b00; }
+.jump-stat-row { display: flex; align-items: center; gap: 11px; min-height: 56px; padding: 9px 11px; border: 1px solid #f0eaf1; border-radius: 13px; background: #fff; }
+.jump-stat-symbol { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border-radius: 11px; background: #ffe8f2; color: #d50070; font-size: 20px; font-weight: 900; }
+.jump-stat-row:nth-of-type(3) .jump-stat-symbol { background: #fff5d6; color: #bd8400; }
+.jump-stat-row:nth-of-type(4) .jump-stat-symbol { background: #e3f9f4; color: #008870; }
+.jump-stat-row strong, .jump-stat-row small { display: block; }
+.jump-stat-row strong { color: #392444; font-size: 18px; line-height: 1.1; }
+.jump-stat-row small { margin-top: 2px; color: #918596; font-size: 9px; font-weight: 700; }
+.jump-stats-footnote { margin: auto 0 0; padding-top: 4px; color: #938799; font-size: 9px; line-height: 1.7; }
+.bottom-nav button.nav-item-jump-rope.nav-active { border-radius: 13px; background: #fff2d9; color: #9b5d00; }
+.bottom-nav button.nav-item-jump-rope.nav-active svg { background: #ffe5ad; }
+@keyframes rope-hop { from { transform: translateY(0) rotate(-1deg); } to { transform: translateY(-8px) rotate(1deg); } }
+@keyframes jump-tap { 50% { transform: scale(.94); } }
+@media (max-width: 800px) {
+  .jump-rope-hero { grid-template-columns: minmax(0, 1fr) 245px; }
+  .jump-rope-layout { grid-template-columns: minmax(0, 1.15fr) minmax(210px, .85fr); }
+  .jump-game-card, .jump-stats-card { padding: 17px; }
+}
+@media (max-width: 520px) {
+  .jump-rope-promo { flex-wrap: wrap; gap: 10px; padding: 13px; }
+  .jump-rope-promo-icon { width: 39px; height: 39px; }
+  .jump-rope-promo-copy { flex-basis: calc(100% - 55px); }
+  .jump-rope-promo > button { width: 100%; min-height: 39px; }
+  .jump-rope-hero { grid-template-columns: minmax(0, 1fr) 122px; min-height: 205px; border-radius: 19px; }
+  .jump-rope-hero-copy { padding: 18px 14px; }
+  .jump-rope-hero-copy h2 { font-size: 22px; }
+  .jump-rope-hero-copy p { margin: 6px 0 9px; font-size: 10px; line-height: 1.65; }
+  .jump-rope-kicker { margin-bottom: 5px; font-size: 9px; }
+  .jump-rope-reminder { gap: 4px; padding: 6px 7px; font-size: 8px; }
+  .jump-rope-art { padding: 6px 1px 0; }
+  .jump-rope-art img { max-height: 202px; }
+  .jump-art-star { font-size: 17px; }
+  .jump-art-star-one { top: 20px; right: 6px; }
+  .jump-art-star-two { top: 67px; left: 3px; }
+  .jump-rope-layout { grid-template-columns: 1fr; gap: 11px; }
+  .jump-game-card, .jump-stats-card { padding: 15px; border-radius: 17px; }
+  .jump-stats-card { display: grid; grid-template-columns: 1fr; }
+  .jump-duration-picker button { min-height: 36px; gap: 3px; font-size: 11px; }
+  .jump-timer { font-size: 33px; }
+  .jump-count-button { width: 128px; height: 128px; }
+  .jump-stats-footnote { margin-top: 0; }
+  .bottom-nav button { min-width: 52px; padding: 0 1px; font-size: 8px; white-space: nowrap; }
+  .bottom-nav button span { font-size: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jump-rope-art.jumping-now img, .jump-art-star, .jump-tap-pulse { animation: none; }
+}
