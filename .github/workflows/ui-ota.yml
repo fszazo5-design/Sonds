@@ -1,0 +1,58 @@
+name: Publish Android UI OTA to GitHub Releases
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: github-ui-ota
+  cancel-in-progress: true
+
+jobs:
+  publish-ui:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Build the UI with relative asset paths
+        run: |
+          npm ci
+          npm run build
+
+      - name: Package the UI and generate its integrity manifest
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          (cd dist && zip -qr "$GITHUB_WORKSPACE/Sonds-UI.zip" .)
+          SHA256=$(sha256sum Sonds-UI.zip | awk '{print $1}')
+          printf '{"version":"%s","sha256":"%s"}\n' "$COMMIT_SHA" "$SHA256" > Sonds-UI.json
+
+      - name: Create or update the GitHub UI OTA release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if gh release view ui-ota --repo "$REPOSITORY" >/dev/null 2>&1; then
+            gh release upload ui-ota Sonds-UI.zip Sonds-UI.json --repo "$REPOSITORY" --clobber
+          else
+            gh release create ui-ota Sonds-UI.zip Sonds-UI.json \
+              --repo "$REPOSITORY" \
+              --target "$COMMIT_SHA" \
+              --title "واجهة سندس - OTA" \
+              --notes "حزمة الواجهة المخصصة للتحديث الهوائي داخل تطبيق Android. تُنشر تلقائيًا من الفرع main." \
+              --prerelease
+          fi
