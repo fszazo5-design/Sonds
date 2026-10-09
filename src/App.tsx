@@ -35,7 +35,7 @@ import {
   Zap,
   type LucideProps,
 } from 'lucide-react';
-import JumpRopeActivity, { type JumpRopeStats } from './components/JumpRopeActivity';
+import ActivityGames, { type ActivityGameStats, type CustomActivity } from './components/ActivityGames';
 import favoriteSongVideo from './assets/favorite-song-with-sundus.mp4';
 import startupVideo from './assets/startup-video.mp4';
 import startupIntroPoster from './assets/startup-intro-poster.jpg';
@@ -68,7 +68,7 @@ type Reward = {
   unlocked: boolean;
 };
 
-type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: JumpRopeStats; achievementVersion?: number };
+type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; achievementVersion?: number };
 
 const defaultMeals: Meal[] = [
   {
@@ -137,7 +137,7 @@ const navigation: Array<{ Icon: ComponentType<LucideProps>; id: string; label: s
   { Icon: LayoutDashboard, id: 'home', label: 'الرئيسية' },
   { Icon: CalendarDays, id: 'calendar', label: 'أوقاتي' },
   { Icon: Trophy, id: 'trophy', label: 'إنجازاتي' },
-  { Icon: Activity, id: 'jump-rope', label: 'نط الحبل' },
+  { Icon: Activity, id: 'games', label: 'ألعابي' },
   { Icon: Info, id: 'info', label: 'معلومات' },
 ];
 
@@ -179,7 +179,8 @@ function App() {
   const [rewardTitle, setRewardTitle] = useState('');
   const [celebrationMeal, setCelebrationMeal] = useState<string | null>(null);
   const [activeNav, setActiveNav] = useState('home');
-  const [jumpRopeStats, setJumpRopeStats] = useState<JumpRopeStats>(() => bootData.jumpRope ?? { sessions: 0, totalJumps: 0, bestJumps: 0 });
+  const [activityGameStats, setActivityGameStats] = useState<ActivityGameStats>(() => bootData.activityGames ?? { sessions: bootData.jumpRope?.sessions ?? 0, totalReps: bootData.jumpRope?.totalJumps ?? 0, bestReps: bootData.jumpRope?.bestJumps ?? 0 });
+  const [customActivities, setCustomActivities] = useState<CustomActivity[]>(() => bootData.customActivities ?? []);
   const changePage = (page: string): void => {
     if (page === activeNav) return;
     setActiveNav(page);
@@ -187,11 +188,11 @@ function App() {
     window.scrollTo(0, 0);
   };
 
-  const recordJumpRopeSession = (jumps: number): void => {
-    setJumpRopeStats((current) => ({
+  const recordActivityGame = (reps: number): void => {
+    setActivityGameStats((current) => ({
       sessions: current.sessions + 1,
-      totalJumps: current.totalJumps + jumps,
-      bestJumps: Math.max(current.bestJumps, jumps),
+      totalReps: current.totalReps + reps,
+      bestReps: Math.max(current.bestReps, reps),
     }));
   };
 
@@ -263,7 +264,9 @@ function App() {
       day: { date: today, checked, completedMeals: meals.filter((meal) => checked[meal.id]).map((meal) => meal.id), score, streak },
       rewards,
       meals,
-      jumpRope: jumpRopeStats,
+      jumpRope: bootData.jumpRope,
+      activityGames: activityGameStats,
+      customActivities,
       achievementVersion: ACHIEVEMENT_SYSTEM_VERSION,
     };
     try {
@@ -272,7 +275,7 @@ function App() {
       // SQLite through the Android bridge remains the durable source on file-based WebView origins.
     }
     window.AndroidBridge?.saveState(JSON.stringify(payload));
-  }, [checked, meals, rewards, jumpRopeStats, score, streak, today]);
+  }, [checked, meals, rewards, activityGameStats, customActivities, bootData.jumpRope, score, streak, today]);
 
   useEffect(() => {
     window.AndroidBridge?.saveSchedule(JSON.stringify(meals.map(({ id, title, time }) => ({ id, title, time }))));
@@ -407,7 +410,7 @@ function App() {
         <div className="topbar-actions"><button className="icon-button" aria-label="طلب إذن الإشعارات" onClick={() => window.AndroidBridge?.requestNotificationPermission()}><Bell size={19} /><i /></button><button className="icon-button update-button" type="button" aria-label="تحديث الواجهة" title="تحديث الواجهة" onClick={() => window.AndroidBridge?.refreshWebApp()}><Download size={16} /></button><button className="icon-button" aria-label="إعدادات الأذونات" onClick={() => setShowPermissionSettings(true)}><ShieldCheck size={19} /></button><div className="profile-badge">س</div></div>
       </div>
 
-      {activeNav !== 'home' && <section className="page-heading"><div><span className="section-kicker">سندس دي أنا</span><h1>{navigation.find((item) => item.id === activeNav)?.label}</h1><p>{activeNav === 'calendar' ? 'عدّلي مواعيد وجباتك واحفظي أوقاتك اليومية.' : activeNav === 'trophy' ? 'تابعي تقدمك والجوائز التي حققتها.' : activeNav === 'jump-rope' ? 'تحدّي حركة ممتع بعد الإفطار، في صفحة مستقلة.' : 'معلومات ونصائح وإعدادات التطبيق.'}</p></div></section>}
+      {activeNav !== 'home' && <section className="page-heading"><div><span className="section-kicker">سندس دي أنا</span><h1>{navigation.find((item) => item.id === activeNav)?.label}</h1><p>{activeNav === 'calendar' ? 'عدّلي مواعيد وجباتك واحفظي أوقاتك اليومية.' : activeNav === 'trophy' ? 'تابعي تقدمك والجوائز التي حققتها.' : activeNav === 'games' ? 'اختاري لعبة حركة مرحة، أو أضيفي لعبتك الخاصة.' : 'معلومات ونصائح وإعدادات التطبيق.'}</p></div></section>}
 
       <section hidden={activeNav !== 'home'} className="hero-card">
         <div className="hero-copy">
@@ -418,10 +421,10 @@ function App() {
         </div>
       </section>
 
-      <section hidden={activeNav !== 'home'} className="jump-rope-promo">
+      <section hidden={activeNav !== 'home'} className="jump-rope-promo games-home-promo">
         <div className="jump-rope-promo-icon"><Activity size={21} /></div>
-        <div className="jump-rope-promo-copy"><span className="section-kicker">بعد الإفطار</span><h2>جولة حبل ونجوم؟</h2><p>{checked.breakfast ? 'سجّلتي الفطار! اختاري وقتًا تكونين فيه مرتاحة وابدئي التحدي.' : 'بعد تسجيل الفطار، ستجدين هنا تحدّي نط الحبل الممتع.'}</p></div>
-        <button type="button" onClick={() => changePage('jump-rope')}>افتحي التحدّي <ChevronLeft size={17} /></button>
+        <div className="jump-rope-promo-copy"><span className="section-kicker">وقت ممتع لنفسك</span><h2>ألعاب حركة ونجوم!</h2><p>جرّبي الضغط والبلانك والرقص وتمارين لطيفة، أو أضيفي لعبتك الخاصة.</p></div>
+        <button type="button" onClick={() => changePage('games')}>اختاري لعبة <ChevronLeft size={17} /></button>
       </section>
 
       <section hidden={activeNav !== 'home'} className="favorite-song-card">
@@ -461,7 +464,7 @@ function App() {
         {mealSaveNotice && <p className="meal-save-notice" role="status" aria-live="polite">{mealSaveNotice}</p>}
       </section>
 
-      <JumpRopeActivity active={activeNav === 'jump-rope'} breakfastComplete={Boolean(checked.breakfast)} stats={jumpRopeStats} onSessionComplete={recordJumpRopeSession} />
+      <ActivityGames active={activeNav === 'games'} customGames={customActivities} stats={activityGameStats} onCustomGamesChange={setCustomActivities} onComplete={recordActivityGame} />
 
       <section hidden={activeNav !== 'trophy' && activeNav !== 'info'} className="bottom-grid single-panel">
         <div hidden={activeNav !== 'trophy'} className="reward-card">
