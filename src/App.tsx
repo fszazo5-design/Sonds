@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
 import {
   Activity,
@@ -148,39 +148,6 @@ const readSavedPlan = (): PersistedPlan => {
   }
 };
 
-const Totti = ({ celebrate = false, pose = 'happy' }: { celebrate?: boolean; pose?: string }) => (
-  <div className={`totti-wrap totti-${pose} ${celebrate ? 'totti-celebrate' : ''}`} aria-label="توتي الكلب اللطيف">
-    <div className="totti-ear totti-ear-left" />
-    <div className="totti-ear totti-ear-right" />
-    <div className="totti-face">
-      <span className="totti-eye totti-eye-left" />
-      <span className="totti-eye totti-eye-right" />
-      <span className="totti-patch" />
-      <span className="totti-muzzle"><span className="totti-nose" /><span className="totti-smile" /></span>
-      <span className="totti-tongue" />
-    </div>
-    <div className="totti-paw totti-paw-left">♥</div>
-    <div className="totti-paw totti-paw-right">✦</div>
-  </div>
-);
-
-const Chick = () => (
-  <div className="chick-illustration" aria-label="صورة الكتكوت اللطيف">
-    <svg viewBox="0 0 180 180" role="img" aria-hidden="true">
-      <path d="M50 75C30 65 26 42 42 30c7 17 20 22 34 25" fill="#ffea00" stroke="#6b3d19" strokeWidth="5" strokeLinecap="round" />
-      <path d="M128 70c24-10 30-34 13-48-5 16-16 24-31 29" fill="#ffea00" stroke="#6b3d19" strokeWidth="5" strokeLinecap="round" />
-      <ellipse cx="90" cy="96" rx="57" ry="55" fill="#ffbd00" stroke="#6b3d19" strokeWidth="6" />
-      <path d="M40 104c-23 6-28 28-9 40 9-15 19-19 34-18" fill="#ffcf00" stroke="#6b3d19" strokeWidth="5" />
-      <circle cx="70" cy="87" r="8" fill="#332237" /><circle cx="111" cy="87" r="8" fill="#332237" />
-      <circle cx="73" cy="84" r="2.5" fill="#fff" /><circle cx="114" cy="84" r="2.5" fill="#fff" />
-      <path d="M82 99h17l-8 12z" fill="#ff6b00" stroke="#6b3d19" strokeWidth="4" strokeLinejoin="round" />
-      <path d="M80 122c8 7 17 7 25 0" fill="none" stroke="#6b3d19" strokeWidth="4" strokeLinecap="round" />
-      <path d="M58 150c-4 13-14 17-22 10M121 150c4 13 14 17 22 10" fill="none" stroke="#6b3d19" strokeWidth="6" strokeLinecap="round" />
-      <path d="M46 43c10-12 23-16 36-10" fill="none" stroke="#fff48b" strokeWidth="7" strokeLinecap="round" />
-    </svg>
-  </div>
-);
-
 function App() {
   const today = getToday();
   const [bootData] = useState(readSavedPlan);
@@ -295,13 +262,7 @@ function App() {
     window.AndroidBridge?.saveSchedule(JSON.stringify(meals.map(({ id, title, time }) => ({ id, title, time }))));
   }, [meals]);
 
-  const tottiMessage = useMemo(() => {
-    if (allComplete) return 'واو! يوم كامل من الإنجاز! أنتِ بطلة حقيقية';
-    if (completedCount === 0) return 'يلا يا سندس، نبدأ أول خطوة مع بعض؟';
-    if (completedCount === 1) return 'أحسنتِ! أول خطوة هي الأهم يا بطلة';
-    if (completedCount === 2) return 'شغل ممتاز! توتي فخور بيكي';
-    return 'ممتاز جداً! توتي بيشجعك، فاضل القليل';
-  }, [allComplete, completedCount]);
+
 
   const toggleMeal = (id: string): void => {
     const wasChecked = checked[id];
@@ -332,10 +293,9 @@ function App() {
         <div className="hero-copy">
           <div className="eyebrow"><Sparkles size={15} /> خطوتك الحلوة تبدأ اليوم</div>
           <h1>أهلاً يا <span>آنسة سندس!</span></h1>
-          <p>أنتِ وتوتي في رحلة صحية نابضة بالحياة</p>
+          <p>أنتِ في رحلة صحية نابضة بالحياة</p>
           <div className="hero-meta"><div className="date-chip"><CalendarDays size={16} /> {new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' }).format(now)}</div><div className="clock-chip"><div className="analog-clock" aria-label="ساعة متحركة"><span className="clock-hand clock-hour" style={{ transform: `rotate(${(now.getHours() % 12) * 30 + now.getMinutes() / 2}deg)` }} /><span className="clock-hand clock-minute" style={{ transform: `rotate(${now.getMinutes() * 6 + now.getSeconds() / 10}deg)` }} /><span className="clock-hand clock-second" style={{ transform: `rotate(${now.getSeconds() * 6}deg)` }} /><i /></div><div><strong>{new Intl.DateTimeFormat('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(now)}</strong><small>{nextMeal ? `الوجبة التالية: ${nextMeal.title} — ${formatMealTime(nextMeal.time)}` : 'اكتملت وجبات اليوم'}</small></div></div></div>
         </div>
-        <div className="hero-totti hero-characters"><div className="sparkle sparkle-one">✦</div><div className="sparkle sparkle-two">✧</div><Totti pose="wave" /><Chick /></div>
       </section>
 
       <section hidden={activeNav !== 'home'} className="jump-rope-promo">
@@ -360,16 +320,16 @@ function App() {
         <div className="progress-heading"><div><span className="section-kicker">رحلة اليوم</span><h2>مؤشر إنجازك</h2><small className="score-rules">+2 للإتمام، و−1 بعد فوات الموعد دون إنجاز</small></div><div className="score-bubble">{score}<small>نقطة</small></div></div>
         <div className="big-progress"><div className="big-progress-fill" style={{ width: `${progress}%` }} /><div className="progress-star" style={{ right: `calc(${Math.max(progress, 8)}% - 18px)` }}><Star size={17} fill="currentColor" /></div></div>
         <div className="progress-footer"><span>بداية اليوم</span><strong>{allComplete ? 'اكتمل اليوم بنجاح!' : `${completedCount} من ${meals.length} وجبات مكتملة${missedCount ? ` — ${missedCount} فائتة` : ''}`}</strong><span>{maxScore}</span></div>
-        <div className="totti-message"><Totti pose="wink" /><div><b>توتي يقول:</b><p>{tottiMessage}</p></div><Heart size={19} className="message-heart" fill="currentColor" /></div>
+        <div className="totti-message"><div><b>رسالة اليوم</b><p>{allComplete ? 'واو! يوم كامل من الإنجاز! أنتِ بطلة حقيقية' : completedCount === 0 ? 'يلا يا سندس، نبدأ أول خطوة؟' : completedCount === 1 ? 'أحسنتِ! أول خطوة هي الأهم يا بطلة' : 'شغل ممتاز! استمري، فاضل القليل'}</p></div><Heart size={19} className="message-heart" fill="currentColor" /></div>
       </section>
 
       <section hidden={activeNav !== 'calendar'} className="meal-section">
         <div className="section-title-row"><div><span className="section-kicker">خطة التغذية</span><h2>وجباتك اليوم</h2></div><span className="target-pill"><span /> الهدف 1700 سعرة</span></div>
         <div className="meal-list">
-          {meals.map((meal, index) => {
+          {meals.map((meal) => {
             const isDone = Boolean(checked[meal.id]);
             return <article className={`meal-card meal-card-${meal.accent} ${isDone ? 'meal-done' : ''}`} key={meal.id}>
-              <div className={`meal-icon meal-${meal.accent}`}>{meal.icon}</div><div className="meal-totti"><Totti pose={index === 0 ? 'wave' : index === 2 ? 'wink' : 'happy'} /></div>
+              <div className={`meal-icon meal-${meal.accent}`}>{meal.icon}</div>
               <div className="meal-main"><div className="meal-topline"><div><span className="meal-label">{meal.label}</span><h3>{meal.title}</h3></div><label className="meal-time"><Clock size={15} /><input className="meal-time-input" type="time" value={meal.time} aria-label={`موعد ${meal.title}`} onChange={(event) => setMeals((current) => current.map((item) => item.id === meal.id ? { ...item, time: event.target.value } : item))} /><span className="meal-time-readable">{formatMealTime(meal.time)}</span></label></div><ul>{meal.items.map((item) => <li key={item}><span />{item}</li>)}</ul></div>
               <div className="meal-side"><strong>{meal.calories}</strong><small>سعرة</small><button className={`check-button ${isDone ? 'checked' : ''}`} onClick={() => toggleMeal(meal.id)} aria-label={`تحديد ${meal.title}`}><Check size={22} strokeWidth={3} /></button></div>
               {isDone && <div className="done-ribbon">تمت <Check size={12} /></div>}
@@ -387,12 +347,12 @@ function App() {
           <div className="rewards-list">{rewards.length === 0 ? <div className="empty-rewards">صندوق الإنجازات فارغ الآن. ابدئي وجمّعي نقاطك!</div> : rewards.slice(0, 3).map((reward) => <div className={`reward-row ${reward.unlocked ? 'reward-unlocked' : ''}`} key={reward.id}><span className="reward-status">{reward.unlocked ? <Gift size={17} /> : <LockKeyhole size={16} />}</span><div><b>{reward.title}</b><small>{reward.note}</small></div><ChevronLeft size={17} /></div>)}</div>
           {showRewardForm ? <div className="reward-form"><input autoFocus value={rewardTitle} onChange={(event) => setRewardTitle(event.target.value)} placeholder="اكتبي اسم المكافأة" onKeyDown={(event) => event.key === 'Enter' && addReward()} /><button onClick={addReward}>إضافة</button></div> : <button className="add-reward" onClick={() => setShowRewardForm(true)}><Plus size={17} /> إضافة مكافأة جديدة</button>}
         </div>
-        <div hidden={activeNav !== 'info'} className="tip-card"><div className="tip-icon"><CircleHelp size={25} /></div><span className="section-kicker">نصيحة توتي</span><h2>الماء سر النشاط!</h2><p>حاولي تشربي من 6 إلى 8 أكواب مياه على مدار اليوم، جسمك هيشكرك.</p><div className="water-drops"><span>💧</span><span>💧</span><span>💧</span><span>💧</span><span>+</span></div></div>
+        <div hidden={activeNav !== 'info'} className="tip-card"><div className="tip-icon"><CircleHelp size={25} /></div><span className="section-kicker">نصيحة صحية</span><h2>الماء سر النشاط!</h2><p>حاولي تشربي من 6 إلى 8 أكواب مياه على مدار اليوم، جسمك هيشكرك.</p><div className="water-drops"><span>💧</span><span>💧</span><span>💧</span><span>💧</span><span>+</span></div></div>
       </section>
 
       {activeNav === 'info' && <section className="info-actions-card"><span className="section-kicker">حول التطبيق</span><h2>سندس دي أنا</h2><p>خطتك الغذائية ومواعيد الوجبات محفوظة على هذا الجهاز. يمكنك إدارة التنبيهات والأذونات من هنا.</p><button type="button" onClick={() => setShowPermissionSettings(true)}><ShieldCheck size={18} /> إعدادات الجهاز والتنبيهات</button></section>}
 
-      <footer hidden={activeNav !== 'home'}><span>صُنع بحب لسندس وتوتي</span><span>تذكري: كل خطوة صغيرة انتصار كبير <Heart size={14} fill="currentColor" /></span></footer>
+      <footer hidden={activeNav !== 'home'}><span>صُنع بحب لسندس</span><span>تذكري: كل خطوة صغيرة انتصار كبير <Heart size={14} fill="currentColor" /></span></footer>
 
       {showPermissionSettings && <div className="celebration-overlay permission-overlay"><section className="permission-modal" role="dialog" aria-modal="true" aria-labelledby="permission-title"><button className="close-modal" onClick={() => setShowPermissionSettings(false)} aria-label="إغلاق"><X size={18} /></button><div className="permission-icon"><ShieldCheck size={27} /></div><span className="section-kicker">إعدادات الجهاز</span><h2 id="permission-title">الأذونات والتنبيهات</h2><p>يظهر طلب السماح تلقائيًا عند فتح التطبيق، ويمكنك إعادة طلبه من هنا.</p><div className="permission-actions"><button onClick={() => window.AndroidBridge?.checkForAppUpdate()}><Download size={19} /><span><b>تحديث نظام Android (APK)</b><small>للتغييرات الأصلية في Kotlin أو أذونات الجهاز فقط</small></span></button><button onClick={() => window.AndroidBridge?.requestNotificationPermission()}><Bell size={19} /><span><b>السماح بتنبيهات الوجبات</b><small>تذكير محلي في موعد كل وجبة</small></span></button><button onClick={() => window.AndroidBridge?.requestExactAlarmAccess()}><Clock size={19} /><span><b>ضبط دقة مواعيد التنبيه</b><small>يفتح إعدادات المنبهات الدقيقة في Android</small></span></button><button onClick={() => window.AndroidBridge?.requestCameraPermission()}><Camera size={19} /><span><b>إذن الكاميرا</b><small>السماح باستخدام الكاميرا عند الحاجة</small></span></button><button onClick={() => window.AndroidBridge?.requestMicrophonePermission()}><Mic size={19} /><span><b>إذن الميكروفون</b><small>السماح باستخدام الميكروفون عند الحاجة</small></span></button></div></section></div>}
 
@@ -400,7 +360,7 @@ function App() {
 
       <nav className="bottom-nav" aria-label="التنقل بين صفحات التطبيق">{navigation.map(({ Icon, id, label }) => <button key={id} aria-current={activeNav === id ? 'page' : undefined} className={`nav-item-${id} ${activeNav === id ? 'nav-active' : ''}`} onClick={() => changePage(id)}><Icon size={20} /><span>{label}</span></button>)}</nav>
 
-      {celebrationMeal && <div className="celebration-overlay"><div className="star-sparks" aria-hidden="true"><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span></div><div className="celebration-modal" role="dialog" aria-modal="true" aria-label="تهنئة إتمام الوجبة"><button className="close-modal" onClick={() => setCelebrationMeal(null)} aria-label="إغلاق التهنئة"><X size={18} /></button><div className="applause-emoji" aria-hidden="true">👏</div><Totti celebrate /><span className="section-kicker">تصفيق لكِ!</span><h2>أحسنتِ يا بطلة!</h2><p>أتممتِ {celebrationMeal} بنجاح. استمري في رحلتك!</p><div className="celebration-score"><Sparkles size={18} /> +2 نقطة إنجاز</div><button className="primary-button" onClick={() => setCelebrationMeal(null)}>رائع! <ChevronLeft size={18} /></button></div></div>}
+      {celebrationMeal && <div className="celebration-overlay"><div className="star-sparks" aria-hidden="true"><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span></div><div className="celebration-modal" role="dialog" aria-modal="true" aria-label="تهنئة إتمام الوجبة"><button className="close-modal" onClick={() => setCelebrationMeal(null)} aria-label="إغلاق التهنئة"><X size={18} /></button><div className="applause-emoji" aria-hidden="true">👏</div><span className="section-kicker">تصفيق لكِ!</span><h2>أحسنتِ يا بطلة!</h2><p>أتممتِ {celebrationMeal} بنجاح. استمري في رحلتك!</p><div className="celebration-score"><Sparkles size={18} /> +2 نقطة إنجاز</div><button className="primary-button" onClick={() => setCelebrationMeal(null)}>رائع! <ChevronLeft size={18} /></button></div></div>}
     </main>
   );
 }
