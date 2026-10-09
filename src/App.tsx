@@ -11,8 +11,8 @@ import {
   ChevronLeft,
   Camera,
   Clock,
-  CircleHelp,
   Download,
+  Droplets,
   Flame,
   Gift,
   Heart,
@@ -36,6 +36,8 @@ import {
   type LucideProps,
 } from 'lucide-react';
 import ActivityGames, { type ActivityGameStats, type CustomActivity } from './components/ActivityGames';
+import WaterTrackerPage, { type WaterTrackingData } from './components/WaterTrackerPage';
+import { chooseMealMessage, getMealMessageCategory } from './components/mealMessages';
 import favoriteSongVideo from './assets/favorite-song-with-sundus.mp4';
 import startupVideo from './assets/startup-video.mp4';
 import startupIntroPoster from './assets/startup-intro-poster.jpg';
@@ -68,7 +70,7 @@ type Reward = {
   unlocked: boolean;
 };
 
-type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; achievementVersion?: number };
+type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; water?: WaterTrackingData; mealMessages?: Record<string, string>; achievementVersion?: number };
 
 const defaultMeals: Meal[] = [
   {
@@ -140,6 +142,7 @@ const navigation: Array<{ Icon: ComponentType<LucideProps>; id: string; label: s
   { Icon: Activity, id: 'games', label: 'ألعابي' },
   { Icon: Info, id: 'info', label: 'معلومات' },
 ];
+const isKnownPage = (page: string): boolean => page === 'water' || navigation.some((item) => item.id === page);
 
 const ACHIEVEMENT_SYSTEM_VERSION = 2;
 const readSavedPlan = (): PersistedPlan => {
@@ -177,14 +180,22 @@ function App() {
   const [showPermissionSettings, setShowPermissionSettings] = useState(false);
   const [showFavoriteSong, setShowFavoriteSong] = useState(false);
   const [rewardTitle, setRewardTitle] = useState('');
-  const [celebrationMeal, setCelebrationMeal] = useState<string | null>(null);
+  const [celebrationMeal, setCelebrationMeal] = useState<{ title: string; message: string } | null>(null);
   const [activeNav, setActiveNav] = useState('home');
   const [activityGameStats, setActivityGameStats] = useState<ActivityGameStats>(() => bootData.activityGames ?? { sessions: bootData.jumpRope?.sessions ?? 0, totalReps: bootData.jumpRope?.totalJumps ?? 0, bestReps: bootData.jumpRope?.bestJumps ?? 0 });
   const [customActivities, setCustomActivities] = useState<CustomActivity[]>(() => bootData.customActivities ?? []);
-  const changePage = (page: string): void => {
+  const [mealMessages, setMealMessages] = useState<Record<string, string>>(() => bootData.mealMessages ?? {});
+  const [waterData, setWaterData] = useState<WaterTrackingData>(() => ({
+    dailyGoal: Math.min(16, Math.max(4, bootData.water?.dailyGoal ?? 8)),
+    cupsByDate: bootData.water?.cupsByDate ?? {},
+    weightByDate: bootData.water?.weightByDate ?? {},
+    remindersEnabled: bootData.water?.remindersEnabled ?? true,
+    reminderTimes: Array.isArray(bootData.water?.reminderTimes) ? bootData.water.reminderTimes : ['10:00', '13:00', '16:00', '19:00'],
+  }));
+  const changePage = (page: string, replace = false): void => {
     if (page === activeNav) return;
     setActiveNav(page);
-    window.history.pushState({ appPage: page }, '', `#${page}`);
+    window.history[replace ? 'replaceState' : 'pushState']({ appPage: page }, '', `#${page}`);
     window.scrollTo(0, 0);
   };
 
@@ -203,12 +214,12 @@ function App() {
 
   useEffect(() => {
     const pageFromHash = window.location.hash.slice(1);
-    const initialPage = navigation.some((item) => item.id === pageFromHash) ? pageFromHash : 'home';
+    const initialPage = isKnownPage(pageFromHash) ? pageFromHash : 'home';
     setActiveNav(initialPage);
     window.history.replaceState({ appPage: initialPage }, '', `#${initialPage}`);
     const onPopState = (): void => {
       const page = window.location.hash.slice(1);
-      setActiveNav(navigation.some((item) => item.id === page) ? page : 'home');
+      setActiveNav(isKnownPage(page) ? page : 'home');
       setShowPermissionSettings(false);
       setCelebrationMeal(null);
       window.scrollTo(0, 0);
@@ -241,7 +252,7 @@ function App() {
 
   useEffect(() => {
     if (!celebrationMeal) return;
-    const timer = window.setTimeout(() => setCelebrationMeal(null), 2600);
+    const timer = window.setTimeout(() => setCelebrationMeal(null), 6000);
     return () => window.clearTimeout(timer);
   }, [celebrationMeal]);
 
@@ -267,6 +278,8 @@ function App() {
       jumpRope: bootData.jumpRope,
       activityGames: activityGameStats,
       customActivities,
+      water: waterData,
+      mealMessages,
       achievementVersion: ACHIEVEMENT_SYSTEM_VERSION,
     };
     try {
@@ -275,11 +288,14 @@ function App() {
       // SQLite through the Android bridge remains the durable source on file-based WebView origins.
     }
     window.AndroidBridge?.saveState(JSON.stringify(payload));
-  }, [checked, meals, rewards, activityGameStats, customActivities, bootData.jumpRope, score, streak, today]);
+  }, [checked, meals, rewards, activityGameStats, customActivities, bootData.jumpRope, waterData, mealMessages, score, streak, today]);
 
   useEffect(() => {
-    window.AndroidBridge?.saveSchedule(JSON.stringify(meals.map(({ id, title, time }) => ({ id, title, time }))));
-  }, [meals]);
+    const waterReminders = waterData.remindersEnabled
+      ? waterData.reminderTimes.map((time) => ({ id: `water-reminder-${time.replace(':', '-')}`, title: 'شرب الماء', time }))
+      : [];
+    window.AndroidBridge?.saveSchedule(JSON.stringify([...meals.map(({ id, title, time }) => ({ id, title, time })), ...waterReminders]));
+  }, [meals, waterData.remindersEnabled, waterData.reminderTimes]);
 
 
 
@@ -350,8 +366,22 @@ function App() {
     const wasChecked = checked[id];
     setChecked((current) => ({ ...current, [id]: !current[id] }));
     if (!wasChecked) {
-      setCelebrationMeal(meals.find((meal) => meal.id === id)?.title ?? 'الوجبة');
+      const meal = meals.find((item) => item.id === id);
+      const messageKey = `${today}:${id}`;
+      const alreadyShown = Object.entries(mealMessages)
+        .filter(([key]) => key.startsWith(`${today}:`) && key !== messageKey)
+        .map(([, message]) => message);
+      const message = chooseMealMessage(getMealMessageCategory(id), alreadyShown);
+      setMealMessages((current) => ({ ...current, [messageKey]: message }));
+      setCelebrationMeal({ title: meal?.title ?? 'الوجبة', message });
       if (completedCount === meals.length - 1) setStreak((current) => current + 1);
+    } else {
+      setMealMessages((current) => {
+        const next = { ...current };
+        delete next[`${today}:${id}`];
+        return next;
+      });
+      setCelebrationMeal(null);
     }
   };
 
@@ -410,7 +440,7 @@ function App() {
         <div className="topbar-actions"><button className="icon-button" aria-label="طلب إذن الإشعارات" onClick={() => window.AndroidBridge?.requestNotificationPermission()}><Bell size={19} /><i /></button><button className="icon-button update-button" type="button" aria-label="تحديث الواجهة" title="تحديث الواجهة" onClick={() => window.AndroidBridge?.refreshWebApp()}><Download size={16} /></button><button className="icon-button" aria-label="إعدادات الأذونات" onClick={() => setShowPermissionSettings(true)}><ShieldCheck size={19} /></button><div className="profile-badge">س</div></div>
       </div>
 
-      {activeNav !== 'home' && <section className="page-heading"><div><span className="section-kicker">سندس دي أنا</span><h1>{navigation.find((item) => item.id === activeNav)?.label}</h1><p>{activeNav === 'calendar' ? 'عدّلي مواعيد وجباتك واحفظي أوقاتك اليومية.' : activeNav === 'trophy' ? 'تابعي تقدمك والجوائز التي حققتها.' : activeNav === 'games' ? 'اختاري لعبة حركة مرحة، أو أضيفي لعبتك الخاصة.' : 'معلومات ونصائح وإعدادات التطبيق.'}</p></div></section>}
+      {activeNav !== 'home' && <section className="page-heading"><div><span className="section-kicker">سندس دي أنا</span><h1>{activeNav === 'water' ? 'متابعة شرب الماء' : navigation.find((item) => item.id === activeNav)?.label}</h1><p>{activeNav === 'calendar' ? 'عدّلي مواعيد وجباتك واحفظي أوقاتك اليومية.' : activeNav === 'trophy' ? 'تابعي تقدمك والجوائز التي حققتها.' : activeNav === 'games' ? 'اختاري لعبة حركة مرحة، أو أضيفي لعبتك الخاصة.' : activeNav === 'water' ? 'سجلّ لطيف لأكوابك وأيامك وتنبيهاتك.' : 'معلومات ونصائح وإعدادات التطبيق.'}</p></div></section>}
 
       <section hidden={activeNav !== 'home'} className="hero-card">
         <div className="hero-copy">
@@ -454,7 +484,7 @@ function App() {
             if (mealEditor?.mealId === meal.id) return <div className="meal-editor-card-wrap" key={meal.id}>{renderMealEditor()}</div>;
             return <article className={`meal-card meal-card-${meal.accent} ${isDone ? 'meal-done' : ''}`} key={meal.id}>
               <div className={`meal-icon meal-${meal.accent}`}>{meal.icon}</div>
-              <div className="meal-main"><div className="meal-topline"><div><span className="meal-label">{meal.label}</span><h3>{meal.title}</h3></div><label className="meal-time"><Clock size={15} /><input className="meal-time-input" type="time" value={meal.time} aria-label={`موعد ${meal.title}`} onChange={(event) => setMeals((current) => current.map((item) => item.id === meal.id ? { ...item, time: event.target.value } : item))} /><span className="meal-time-readable">{formatMealTime(meal.time)}</span></label></div><ul>{meal.items.map((item, itemIndex) => <li key={`${meal.id}-${itemIndex}`}><span />{item}</li>)}</ul></div>
+              <div className="meal-main"><div className="meal-topline"><div><span className="meal-label">{meal.label}</span><h3>{meal.title}</h3></div><label className="meal-time"><Clock size={15} /><input className="meal-time-input" type="time" value={meal.time} aria-label={`موعد ${meal.title}`} onChange={(event) => setMeals((current) => current.map((item) => item.id === meal.id ? { ...item, time: event.target.value } : item))} /><span className="meal-time-readable">{formatMealTime(meal.time)}</span></label></div><ul>{meal.items.map((item, itemIndex) => <li key={`${meal.id}-${itemIndex}`}><span />{item}</li>)}</ul>{isDone && mealMessages[`${today}:${meal.id}`] && <div className="meal-message-card"><span className="meal-message-heart"><Heart size={15} fill="currentColor" /></span><div><b>رسالة حب من بابا سعيد</b><p>{mealMessages[`${today}:${meal.id}`]}</p></div><Sparkles size={15} className="meal-message-sparkle" /></div>}</div>
               <div className="meal-side"><div className="meal-order-controls"><button type="button" onClick={() => moveMeal(meal.id, -1)} disabled={index === 0} aria-label={`رفع ${meal.title} في الترتيب`} title="تحريك لأعلى"><ArrowUp size={15} /></button><button type="button" onClick={() => moveMeal(meal.id, 1)} disabled={index === meals.length - 1} aria-label={`خفض ${meal.title} في الترتيب`} title="تحريك لأسفل"><ArrowDown size={15} /></button><button type="button" onClick={() => startMealEdit(meal)} aria-label={`تعديل ${meal.title}`} title="تعديل الوجبة"><Pencil size={15} /></button></div><strong>{meal.calories}</strong><small>سعرة</small><button className={`check-button ${isDone ? 'checked' : ''}`} onClick={() => toggleMeal(meal.id)} aria-label={`تحديد ${meal.title}`}><Check size={22} strokeWidth={3} /></button></div>
               {isDone && <div className="done-ribbon">تمت <Check size={12} /></div>}
             </article>;
@@ -473,20 +503,22 @@ function App() {
           <div className="rewards-list">{rewards.length === 0 ? <div className="empty-rewards">صندوق الإنجازات فارغ الآن. ابدئي وجمّعي نقاطك!</div> : rewards.slice(0, 3).map((reward) => <div className={`reward-row ${reward.unlocked ? 'reward-unlocked' : ''}`} key={reward.id}><span className="reward-status">{reward.unlocked ? <Gift size={17} /> : <LockKeyhole size={16} />}</span><div><b>{reward.title}</b><small>{reward.note}</small></div><ChevronLeft size={17} /></div>)}</div>
           {showRewardForm ? <div className="reward-form"><input autoFocus value={rewardTitle} onChange={(event) => setRewardTitle(event.target.value)} placeholder="اكتبي اسم المكافأة" onKeyDown={(event) => event.key === 'Enter' && addReward()} /><button onClick={addReward}>إضافة</button></div> : <button className="add-reward" onClick={() => setShowRewardForm(true)}><Plus size={17} /> إضافة مكافأة جديدة</button>}
         </div>
-        <div hidden={activeNav !== 'info'} className="tip-card"><div className="tip-icon"><CircleHelp size={25} /></div><span className="section-kicker">نصيحة صحية</span><h2>الماء سر النشاط!</h2><p>حاولي تشربي من 6 إلى 8 أكواب مياه على مدار اليوم، جسمك هيشكرك.</p><div className="water-drops"><span>💧</span><span>💧</span><span>💧</span><span>💧</span><span>+</span></div></div>
+        <button hidden={activeNav !== 'info'} type="button" className="water-info-card" onClick={() => changePage('water')}><span className="water-info-visual"><Droplets size={32} /><span>💧</span></span><span className="section-kicker">توتي يفكّرك بلطف</span><strong>ركن شرب الماء</strong><span className="water-info-description">علّمي أكوابك، راقبي أسبوعك، واختاري تذكيرًا صوتيًا يناسبك.</span><span className="water-info-link">افتحي سجل الماء <ChevronLeft size={16} /></span></button>
       </section>
+
+      <WaterTrackerPage active={activeNav === 'water'} data={waterData} onChange={setWaterData} onBack={() => changePage('info', true)} />
 
       {activeNav === 'info' && <section className="info-actions-card"><span className="section-kicker">حول التطبيق</span><h2>سندس دي أنا</h2><p>خطتك الغذائية ومواعيد الوجبات محفوظة على هذا الجهاز. يمكنك إدارة التنبيهات والأذونات من هنا.</p><button type="button" onClick={() => setShowPermissionSettings(true)}><ShieldCheck size={18} /> إعدادات الجهاز والتنبيهات</button></section>}
 
       <footer hidden={activeNav !== 'home'}><span>صُنع بحب لسندس</span><span>تذكري: كل خطوة صغيرة انتصار كبير <Heart size={14} fill="currentColor" /></span></footer>
 
-      {showPermissionSettings && <div className="celebration-overlay permission-overlay"><section className="permission-modal" role="dialog" aria-modal="true" aria-labelledby="permission-title"><button className="close-modal" onClick={() => setShowPermissionSettings(false)} aria-label="إغلاق"><X size={18} /></button><div className="permission-icon"><ShieldCheck size={27} /></div><span className="section-kicker">إعدادات الجهاز</span><h2 id="permission-title">الأذونات والتنبيهات</h2><p>يظهر طلب السماح تلقائيًا عند فتح التطبيق، ويمكنك إعادة طلبه من هنا.</p><div className="permission-actions"><button onClick={() => window.AndroidBridge?.checkForAppUpdate()}><Download size={19} /><span><b>تحديث نظام Android (APK)</b><small>للتغييرات الأصلية في Kotlin أو أذونات الجهاز فقط</small></span></button><button onClick={() => window.AndroidBridge?.requestNotificationPermission()}><Bell size={19} /><span><b>السماح بتنبيهات الوجبات</b><small>تذكير محلي في موعد كل وجبة</small></span></button><button onClick={() => window.AndroidBridge?.requestExactAlarmAccess()}><Clock size={19} /><span><b>ضبط دقة مواعيد التنبيه</b><small>يفتح إعدادات المنبهات الدقيقة في Android</small></span></button><button onClick={() => window.AndroidBridge?.requestCameraPermission()}><Camera size={19} /><span><b>إذن الكاميرا</b><small>السماح باستخدام الكاميرا عند الحاجة</small></span></button><button onClick={() => window.AndroidBridge?.requestMicrophonePermission()}><Mic size={19} /><span><b>إذن الميكروفون</b><small>السماح باستخدام الميكروفون عند الحاجة</small></span></button></div></section></div>}
+      {showPermissionSettings && <div className="celebration-overlay permission-overlay"><section className="permission-modal" role="dialog" aria-modal="true" aria-labelledby="permission-title"><button className="close-modal" onClick={() => setShowPermissionSettings(false)} aria-label="إغلاق"><X size={18} /></button><div className="permission-icon"><ShieldCheck size={27} /></div><span className="section-kicker">إعدادات الجهاز</span><h2 id="permission-title">الأذونات والتنبيهات</h2><p>يظهر طلب السماح تلقائيًا عند فتح التطبيق، ويمكنك إعادة طلبه من هنا.</p><div className="permission-actions"><button onClick={() => window.AndroidBridge?.checkForAppUpdate()}><Download size={19} /><span><b>تحديث نظام Android (APK)</b><small>للتغييرات الأصلية في Kotlin أو أذونات الجهاز فقط</small></span></button><button onClick={() => window.AndroidBridge?.requestNotificationPermission()}><Bell size={19} /><span><b>السماح بتنبيهات الوجبات والماء</b><small>تذكيرات محلية لجدول الوجبات ومواعيد الماء</small></span></button><button onClick={() => window.AndroidBridge?.requestExactAlarmAccess()}><Clock size={19} /><span><b>ضبط دقة مواعيد التنبيه</b><small>يفتح إعدادات المنبهات الدقيقة في Android</small></span></button><button onClick={() => window.AndroidBridge?.requestCameraPermission()}><Camera size={19} /><span><b>إذن الكاميرا</b><small>السماح باستخدام الكاميرا عند الحاجة</small></span></button><button onClick={() => window.AndroidBridge?.requestMicrophonePermission()}><Mic size={19} /><span><b>إذن الميكروفون</b><small>السماح باستخدام الميكروفون عند الحاجة</small></span></button></div></section></div>}
 
       {showFavoriteSong && <div className="celebration-overlay favorite-song-overlay" onClick={() => setShowFavoriteSong(false)}><section className="favorite-song-modal" role="dialog" aria-modal="true" aria-labelledby="favorite-song-title" onClick={(event) => event.stopPropagation()}><button className="close-modal" onClick={() => setShowFavoriteSong(false)} aria-label="إغلاق الفيديو"><X size={18} /></button><div className="favorite-song-modal-heading"><div className="favorite-song-icon"><Music2 size={22} /></div><div><span className="section-kicker">أغنية سندس</span><h2 id="favorite-song-title">أغنيتي المفضلة مع سندس</h2></div></div><video className="favorite-song-video" controls playsInline preload="metadata" src={favoriteSongVideo} /><p className="favorite-song-caption">استمتعي بالمشاهدة والاستماع مع كلمات الأغنية.</p></section></div>}
 
       <nav className="bottom-nav" aria-label="التنقل بين صفحات التطبيق">{navigation.map(({ Icon, id, label }) => <button key={id} aria-current={activeNav === id ? 'page' : undefined} className={`nav-item-${id} ${activeNav === id ? 'nav-active' : ''}`} onClick={() => changePage(id)}><Icon size={20} /><span>{label}</span></button>)}</nav>
 
-      {celebrationMeal && <div className="celebration-overlay"><div className="star-sparks" aria-hidden="true"><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span></div><div className="celebration-modal" role="dialog" aria-modal="true" aria-label="تهنئة إتمام الوجبة"><button className="close-modal" onClick={() => setCelebrationMeal(null)} aria-label="إغلاق التهنئة"><X size={18} /></button><div className="applause-emoji" aria-hidden="true">👏</div><span className="section-kicker">تصفيق لكِ!</span><h2>أحسنتِ يا بطلة!</h2><p>أتممتِ {celebrationMeal} بنجاح. استمري في رحلتك!</p><div className="celebration-score"><Sparkles size={18} /> +2 نقطة إنجاز</div><button className="primary-button" onClick={() => setCelebrationMeal(null)}>رائع! <ChevronLeft size={18} /></button></div></div>}
+      {celebrationMeal && <div className="celebration-overlay"><div className="star-sparks" aria-hidden="true"><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span></div><div className="celebration-modal" role="dialog" aria-modal="true" aria-label="تهنئة إتمام الوجبة"><button className="close-modal" onClick={() => setCelebrationMeal(null)} aria-label="إغلاق التهنئة"><X size={18} /></button><div className="applause-emoji" aria-hidden="true">👏</div><span className="section-kicker">تصفيق لكِ! رسالة من بابا سعيد</span><h2>أحسنتِ يا بطلة!</h2><p>أتممتِ {celebrationMeal.title} بنجاح.</p><blockquote className="celebration-love-note"><Heart size={16} fill="currentColor" /><span>{celebrationMeal.message}</span><Sparkles size={16} /></blockquote><div className="celebration-score"><Sparkles size={18} /> +2 نقطة إنجاز</div><button className="primary-button" onClick={() => setCelebrationMeal(null)}>رائع! <ChevronLeft size={18} /></button></div></div>}
     </main>
   );
 }
