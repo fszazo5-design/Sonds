@@ -7,6 +7,9 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.content.pm.PackageManager
 import android.provider.Settings
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
@@ -111,6 +114,7 @@ class MainActivity : Activity() {
         }
         setContentView(webView)
         webView.loadUrl("$REMOTE_UI_START_URL?ota=${System.currentTimeMillis()}")
+        Handler(Looper.getMainLooper()).postDelayed({ requestStartupPermissions() }, 500)
     }
 
     override fun onResume() {
@@ -125,7 +129,26 @@ class MainActivity : Activity() {
 
     @Deprecated("Deprecated in Android API; retained for broad device compatibility")
     override fun onBackPressed() {
-        if (::webView.isInitialized && webView.canGoBack()) webView.goBack() else super.onBackPressed()
+        if (!::webView.isInitialized) {
+            super.onBackPressed()
+            return
+        }
+        webView.evaluateJavascript("window.__sondsHandleBack ? window.__sondsHandleBack() : false") { handled ->
+            if (handled != "true") {
+                if (webView.canGoBack()) webView.goBack() else super@MainActivity.onBackPressed()
+            }
+        }
+    }
+
+    private fun requestStartupPermissions() {
+        val permissions = buildList {
+            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.CAMERA)
+            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.RECORD_AUDIO)
+        }
+        if (permissions.isNotEmpty()) requestPermissions(permissions.toTypedArray(), STARTUP_PERMISSION_REQUEST)
     }
 
     private fun refreshRemoteUi() = runOnUiThread {
@@ -149,6 +172,7 @@ class MainActivity : Activity() {
     }
 
     private companion object {
+        const val STARTUP_PERMISSION_REQUEST = 300
         const val LOCAL_ASSET_HOST = "appassets.androidplatform.net"
         const val APP_ASSET_START_URL = "https://appassets.androidplatform.net/assets/www/index.html"
         const val REMOTE_UI_HOST = "fszazo5-design.github.io"

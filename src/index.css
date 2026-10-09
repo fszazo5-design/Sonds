@@ -280,3 +280,4 @@ footer { display: flex; justify-content: space-between; padding: 25px 0; color: 
 @media (prefers-reduced-motion: reduce) {
   .jump-rope-art.jumping-now img, .jump-art-star, .jump-tap-pulse { animation: none; }
 }
+.topbar .update-button { width: 31px; height: 31px; padding: 0; border-radius: 9px; }

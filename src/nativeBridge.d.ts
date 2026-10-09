@@ -2,6 +2,7 @@ export {};
 
 declare global {
   interface Window {
+    __sondsHandleBack?: () => boolean;
     AndroidBridge?: {
       loadState(): string;
       saveState(payload: string): string;

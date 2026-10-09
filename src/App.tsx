@@ -123,7 +123,7 @@ const formatMealTime = (time: string): string => {
 };
 const navigation: Array<{ Icon: ComponentType<LucideProps>; id: string; label: string }> = [
   { Icon: LayoutDashboard, id: 'home', label: 'الرئيسية' },
-  { Icon: CalendarDays, id: 'calendar', label: 'تقويمي' },
+  { Icon: CalendarDays, id: 'calendar', label: 'أوقاتي' },
   { Icon: Trophy, id: 'trophy', label: 'إنجازاتي' },
   { Icon: Activity, id: 'jump-rope', label: 'نط الحبل' },
   { Icon: Info, id: 'info', label: 'معلومات' },
@@ -194,6 +194,12 @@ function App() {
   const [celebrationMeal, setCelebrationMeal] = useState<string | null>(null);
   const [activeNav, setActiveNav] = useState('home');
   const [jumpRopeStats, setJumpRopeStats] = useState<JumpRopeStats>(() => bootData.jumpRope ?? { sessions: 0, totalJumps: 0, bestJumps: 0 });
+  const changePage = (page: string): void => {
+    if (page === activeNav) return;
+    setActiveNav(page);
+    window.history.pushState({ appPage: page }, '', `#${page}`);
+    window.scrollTo(0, 0);
+  };
 
   const recordJumpRopeSession = (jumps: number): void => {
     setJumpRopeStats((current) => ({
@@ -207,6 +213,40 @@ function App() {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const pageFromHash = window.location.hash.slice(1);
+    const initialPage = navigation.some((item) => item.id === pageFromHash) ? pageFromHash : 'home';
+    setActiveNav(initialPage);
+    window.history.replaceState({ appPage: initialPage }, '', `#${initialPage}`);
+    const onPopState = (): void => {
+      const page = window.location.hash.slice(1);
+      setActiveNav(navigation.some((item) => item.id === page) ? page : 'home');
+      setShowPermissionSettings(false);
+      setCelebrationMeal(null);
+      window.scrollTo(0, 0);
+    };
+    window.addEventListener('popstate', onPopState);
+    window.__sondsHandleBack = (): boolean => {
+      if (showPermissionSettings) {
+        setShowPermissionSettings(false);
+        return true;
+      }
+      if (celebrationMeal) {
+        setCelebrationMeal(null);
+        return true;
+      }
+      if (activeNav !== 'home') {
+        window.history.back();
+        return true;
+      }
+      return false;
+    };
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      delete window.__sondsHandleBack;
+    };
+  }, [activeNav, celebrationMeal, showPermissionSettings]);
 
   useEffect(() => {
     if (!celebrationMeal) return;
@@ -276,10 +316,10 @@ function App() {
     <main dir="rtl" className="app-shell">
       <div className="topbar">
         <div className="brand-mark"><span className="brand-paw">✦</span><div><strong>سندس دي أنا</strong><small>خطتي الصحية</small></div></div>
-        <div className="topbar-actions"><button className="icon-button" aria-label="طلب إذن الإشعارات" onClick={() => window.AndroidBridge?.requestNotificationPermission()}><Bell size={19} /><i /></button><button className="icon-button update-button" type="button" aria-label="تحديث واجهة التطبيق عبر الإنترنت" title="تحديث الواجهة الهوائي" onClick={() => window.AndroidBridge?.refreshWebApp()}><Download size={17} /></button><button className="icon-button" aria-label="إعدادات الأذونات" onClick={() => setShowPermissionSettings(true)}><ShieldCheck size={19} /></button><div className="profile-badge">س</div></div>
+        <div className="topbar-actions"><button className="icon-button" aria-label="طلب إذن الإشعارات" onClick={() => window.AndroidBridge?.requestNotificationPermission()}><Bell size={19} /><i /></button><button className="icon-button update-button" type="button" aria-label="تحديث الواجهة" title="تحديث الواجهة" onClick={() => window.AndroidBridge?.refreshWebApp()}><Download size={16} /></button><button className="icon-button" aria-label="إعدادات الأذونات" onClick={() => setShowPermissionSettings(true)}><ShieldCheck size={19} /></button><div className="profile-badge">س</div></div>
       </div>
 
-      {activeNav !== 'home' && <section className="page-heading"><div><span className="section-kicker">سندس دي أنا</span><h1>{navigation.find((item) => item.id === activeNav)?.label}</h1><p>{activeNav === 'calendar' ? 'مواعيد وجباتك وخطتك اليومية في مكان واحد.' : activeNav === 'trophy' ? 'تابعي تقدمك والجوائز التي حققتها.' : activeNav === 'jump-rope' ? 'تحدّي حركة ممتع بعد الإفطار، في صفحة مستقلة.' : 'معلومات ونصائح وإعدادات التطبيق.'}</p></div></section>}
+      {activeNav !== 'home' && <section className="page-heading"><div><span className="section-kicker">سندس دي أنا</span><h1>{navigation.find((item) => item.id === activeNav)?.label}</h1><p>{activeNav === 'calendar' ? 'عدّلي مواعيد وجباتك واحفظي أوقاتك اليومية.' : activeNav === 'trophy' ? 'تابعي تقدمك والجوائز التي حققتها.' : activeNav === 'jump-rope' ? 'تحدّي حركة ممتع بعد الإفطار، في صفحة مستقلة.' : 'معلومات ونصائح وإعدادات التطبيق.'}</p></div></section>}
 
       <section hidden={activeNav !== 'home'} className="hero-card">
         <div className="hero-copy">
@@ -294,7 +334,7 @@ function App() {
       <section hidden={activeNav !== 'home'} className="jump-rope-promo">
         <div className="jump-rope-promo-icon"><Activity size={21} /></div>
         <div className="jump-rope-promo-copy"><span className="section-kicker">بعد الإفطار</span><h2>جولة حبل ونجوم؟</h2><p>{checked.breakfast ? 'سجّلتي الفطار! اختاري وقتًا تكونين فيه مرتاحة وابدئي التحدي.' : 'بعد تسجيل الفطار، ستجدين هنا تحدّي نط الحبل الممتع.'}</p></div>
-        <button type="button" onClick={() => { setActiveNav('jump-rope'); window.scrollTo(0, 0); }}>افتحي التحدّي <ChevronLeft size={17} /></button>
+        <button type="button" onClick={() => changePage('jump-rope')}>افتحي التحدّي <ChevronLeft size={17} /></button>
       </section>
 
       <section hidden={activeNav !== 'home' && activeNav !== 'trophy'} className="stats-grid">
@@ -341,9 +381,9 @@ function App() {
 
       <footer hidden={activeNav !== 'home'}><span>صُنع بحب لسندس وتوتي</span><span>تذكري: كل خطوة صغيرة انتصار كبير <Heart size={14} fill="currentColor" /></span></footer>
 
-      {showPermissionSettings && <div className="celebration-overlay permission-overlay"><section className="permission-modal" role="dialog" aria-modal="true" aria-labelledby="permission-title"><button className="close-modal" onClick={() => setShowPermissionSettings(false)} aria-label="إغلاق"><X size={18} /></button><div className="permission-icon"><ShieldCheck size={27} /></div><span className="section-kicker">إعدادات الجهاز</span><h2 id="permission-title">الأذونات والتنبيهات</h2><p>نطلب كل إذن عند اختيارك له. الكاميرا والميكروفون غير مستخدمين حاليًا داخل الخطة.</p><div className="permission-actions"><button onClick={() => window.AndroidBridge?.refreshWebApp()}><Download size={19} /><span><b>تحديث واجهة التطبيق الآن</b><small>تحميل تعديلات React من GitHub دون تثبيت APK</small></span></button><button onClick={() => window.AndroidBridge?.checkForAppUpdate()}><Download size={19} /><span><b>تحديث نظام Android (APK)</b><small>للتغييرات الأصلية في Kotlin أو أذونات الجهاز فقط</small></span></button><button onClick={() => window.AndroidBridge?.requestNotificationPermission()}><Bell size={19} /><span><b>السماح بتنبيهات الوجبات</b><small>تذكير محلي في موعد كل وجبة</small></span></button><button onClick={() => window.AndroidBridge?.requestExactAlarmAccess()}><Clock size={19} /><span><b>ضبط دقة مواعيد التنبيه</b><small>يفتح إعدادات المنبهات الدقيقة في Android</small></span></button><button onClick={() => window.AndroidBridge?.requestCameraPermission()}><Camera size={19} /><span><b>إذن الكاميرا</b><small>لا يُطلب إلا عند ضغط هذا الخيار</small></span></button><button onClick={() => window.AndroidBridge?.requestMicrophonePermission()}><Mic size={19} /><span><b>إذن الميكروفون</b><small>لا يُطلب إلا عند ضغط هذا الخيار</small></span></button></div></section></div>}
+      {showPermissionSettings && <div className="celebration-overlay permission-overlay"><section className="permission-modal" role="dialog" aria-modal="true" aria-labelledby="permission-title"><button className="close-modal" onClick={() => setShowPermissionSettings(false)} aria-label="إغلاق"><X size={18} /></button><div className="permission-icon"><ShieldCheck size={27} /></div><span className="section-kicker">إعدادات الجهاز</span><h2 id="permission-title">الأذونات والتنبيهات</h2><p>يظهر طلب السماح تلقائيًا عند فتح التطبيق، ويمكنك إعادة طلبه من هنا.</p><div className="permission-actions"><button onClick={() => window.AndroidBridge?.checkForAppUpdate()}><Download size={19} /><span><b>تحديث نظام Android (APK)</b><small>للتغييرات الأصلية في Kotlin أو أذونات الجهاز فقط</small></span></button><button onClick={() => window.AndroidBridge?.requestNotificationPermission()}><Bell size={19} /><span><b>السماح بتنبيهات الوجبات</b><small>تذكير محلي في موعد كل وجبة</small></span></button><button onClick={() => window.AndroidBridge?.requestExactAlarmAccess()}><Clock size={19} /><span><b>ضبط دقة مواعيد التنبيه</b><small>يفتح إعدادات المنبهات الدقيقة في Android</small></span></button><button onClick={() => window.AndroidBridge?.requestCameraPermission()}><Camera size={19} /><span><b>إذن الكاميرا</b><small>السماح باستخدام الكاميرا عند الحاجة</small></span></button><button onClick={() => window.AndroidBridge?.requestMicrophonePermission()}><Mic size={19} /><span><b>إذن الميكروفون</b><small>السماح باستخدام الميكروفون عند الحاجة</small></span></button></div></section></div>}
 
-      <nav className="bottom-nav" aria-label="التنقل بين صفحات التطبيق">{navigation.map(({ Icon, id, label }) => <button key={id} aria-current={activeNav === id ? 'page' : undefined} className={`nav-item-${id} ${activeNav === id ? 'nav-active' : ''}`} onClick={() => { setActiveNav(id); window.scrollTo(0, 0); }}><Icon size={20} /><span>{label}</span></button>)}</nav>
+      <nav className="bottom-nav" aria-label="التنقل بين صفحات التطبيق">{navigation.map(({ Icon, id, label }) => <button key={id} aria-current={activeNav === id ? 'page' : undefined} className={`nav-item-${id} ${activeNav === id ? 'nav-active' : ''}`} onClick={() => changePage(id)}><Icon size={20} /><span>{label}</span></button>)}</nav>
 
       {celebrationMeal && <div className="celebration-overlay"><div className="star-sparks" aria-hidden="true"><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span></div><div className="celebration-modal" role="dialog" aria-modal="true" aria-label="تهنئة إتمام الوجبة"><button className="close-modal" onClick={() => setCelebrationMeal(null)} aria-label="إغلاق التهنئة"><X size={18} /></button><div className="applause-emoji" aria-hidden="true">👏</div><Totti celebrate /><span className="section-kicker">تصفيق لكِ!</span><h2>أحسنتِ يا بطلة!</h2><p>أتممتِ {celebrationMeal} بنجاح. استمري في رحلتك!</p><div className="celebration-score"><Sparkles size={18} /> +2 نقطة إنجاز</div><button className="primary-button" onClick={() => setCelebrationMeal(null)}>رائع! <ChevronLeft size={18} /></button></div></div>}
     </main>
