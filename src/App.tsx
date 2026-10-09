@@ -18,6 +18,7 @@ import {
   LayoutDashboard,
   LockKeyhole,
   Mic,
+  Music2,
   Plus,
   Sparkles,
   Star,
@@ -29,6 +30,7 @@ import {
   type LucideProps,
 } from 'lucide-react';
 import JumpRopeActivity, { type JumpRopeStats } from './components/JumpRopeActivity';
+import favoriteSongVideo from './assets/favorite-song-with-sundus.mp4';
 
 type Meal = {
   id: string;
@@ -190,6 +192,7 @@ function App() {
   const [now, setNow] = useState(() => new Date());
   const [showRewardForm, setShowRewardForm] = useState(false);
   const [showPermissionSettings, setShowPermissionSettings] = useState(false);
+  const [showFavoriteSong, setShowFavoriteSong] = useState(false);
   const [rewardTitle, setRewardTitle] = useState('');
   const [celebrationMeal, setCelebrationMeal] = useState<string | null>(null);
   const [activeNav, setActiveNav] = useState('home');
@@ -236,6 +239,10 @@ function App() {
         setCelebrationMeal(null);
         return true;
       }
+      if (showFavoriteSong) {
+        setShowFavoriteSong(false);
+        return true;
+      }
       if (activeNav !== 'home') {
         window.history.back();
         return true;
@@ -246,7 +253,7 @@ function App() {
       window.removeEventListener('popstate', onPopState);
       delete window.__sondsHandleBack;
     };
-  }, [activeNav, celebrationMeal, showPermissionSettings]);
+  }, [activeNav, celebrationMeal, showFavoriteSong, showPermissionSettings]);
 
   useEffect(() => {
     if (!celebrationMeal) return;
@@ -337,6 +344,12 @@ function App() {
         <button type="button" onClick={() => changePage('jump-rope')}>افتحي التحدّي <ChevronLeft size={17} /></button>
       </section>
 
+      <section hidden={activeNav !== 'home'} className="favorite-song-card">
+        <div className="favorite-song-icon"><Music2 size={23} /></div>
+        <div className="favorite-song-copy"><span className="section-kicker">لحظتنا الموسيقية</span><h2>أغنيتي المفضلة مع سندس</h2><p>شغّلي الفيديو واستمتعي بالأغنية مع كلماتها.</p></div>
+        <button type="button" onClick={() => setShowFavoriteSong(true)}><Music2 size={17} /> عرض الفيديو</button>
+      </section>
+
       <section hidden={activeNav !== 'home' && activeNav !== 'trophy'} className="stats-grid">
         <div className="stat-card score-stat"><div className="stat-icon pink-icon"><Zap size={21} fill="currentColor" /></div><div><strong>{score}<small>/ {maxScore}</small></strong><span>نقاط اليوم</span></div><div className="mini-progress"><span style={{ width: `${progress}%` }} /></div></div>
         <div className="stat-card"><div className="stat-icon orange-icon"><Flame size={21} fill="currentColor" /></div><div><strong>{streak}<small> أيام</small></strong><span>إنجاز متتالي</span></div><span className="stat-arrow">↗</span></div>
@@ -382,6 +395,8 @@ function App() {
       <footer hidden={activeNav !== 'home'}><span>صُنع بحب لسندس وتوتي</span><span>تذكري: كل خطوة صغيرة انتصار كبير <Heart size={14} fill="currentColor" /></span></footer>
 
       {showPermissionSettings && <div className="celebration-overlay permission-overlay"><section className="permission-modal" role="dialog" aria-modal="true" aria-labelledby="permission-title"><button className="close-modal" onClick={() => setShowPermissionSettings(false)} aria-label="إغلاق"><X size={18} /></button><div className="permission-icon"><ShieldCheck size={27} /></div><span className="section-kicker">إعدادات الجهاز</span><h2 id="permission-title">الأذونات والتنبيهات</h2><p>يظهر طلب السماح تلقائيًا عند فتح التطبيق، ويمكنك إعادة طلبه من هنا.</p><div className="permission-actions"><button onClick={() => window.AndroidBridge?.checkForAppUpdate()}><Download size={19} /><span><b>تحديث نظام Android (APK)</b><small>للتغييرات الأصلية في Kotlin أو أذونات الجهاز فقط</small></span></button><button onClick={() => window.AndroidBridge?.requestNotificationPermission()}><Bell size={19} /><span><b>السماح بتنبيهات الوجبات</b><small>تذكير محلي في موعد كل وجبة</small></span></button><button onClick={() => window.AndroidBridge?.requestExactAlarmAccess()}><Clock size={19} /><span><b>ضبط دقة مواعيد التنبيه</b><small>يفتح إعدادات المنبهات الدقيقة في Android</small></span></button><button onClick={() => window.AndroidBridge?.requestCameraPermission()}><Camera size={19} /><span><b>إذن الكاميرا</b><small>السماح باستخدام الكاميرا عند الحاجة</small></span></button><button onClick={() => window.AndroidBridge?.requestMicrophonePermission()}><Mic size={19} /><span><b>إذن الميكروفون</b><small>السماح باستخدام الميكروفون عند الحاجة</small></span></button></div></section></div>}
+
+      {showFavoriteSong && <div className="celebration-overlay favorite-song-overlay" onClick={() => setShowFavoriteSong(false)}><section className="favorite-song-modal" role="dialog" aria-modal="true" aria-labelledby="favorite-song-title" onClick={(event) => event.stopPropagation()}><button className="close-modal" onClick={() => setShowFavoriteSong(false)} aria-label="إغلاق الفيديو"><X size={18} /></button><div className="favorite-song-modal-heading"><div className="favorite-song-icon"><Music2 size={22} /></div><div><span className="section-kicker">أغنية سندس</span><h2 id="favorite-song-title">أغنيتي المفضلة مع سندس</h2></div></div><video className="favorite-song-video" controls playsInline preload="metadata" src={favoriteSongVideo} /><p className="favorite-song-caption">استمتعي بالمشاهدة والاستماع مع كلمات الأغنية.</p></section></div>}
 
       <nav className="bottom-nav" aria-label="التنقل بين صفحات التطبيق">{navigation.map(({ Icon, id, label }) => <button key={id} aria-current={activeNav === id ? 'page' : undefined} className={`nav-item-${id} ${activeNav === id ? 'nav-active' : ''}`} onClick={() => changePage(id)}><Icon size={20} /><span>{label}</span></button>)}</nav>
 

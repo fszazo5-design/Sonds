@@ -281,3 +281,23 @@ footer { display: flex; justify-content: space-between; padding: 25px 0; color: 
   .jump-rope-art.jumping-now img, .jump-art-star, .jump-tap-pulse { animation: none; }
 }
 .topbar .update-button { width: 31px; height: 31px; padding: 0; border-radius: 9px; }
+.favorite-song-card { display: flex; align-items: center; gap: 14px; margin: 17px 0; padding: 15px 18px; border: 1px solid #f1c9dc; border-radius: 18px; background: linear-gradient(105deg, #fff4fa, #fff8dd); }
+.favorite-song-icon { width: 46px; height: 46px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 14px; background: #ffe0ef; color: #d50070; }
+.favorite-song-copy { flex: 1; min-width: 0; }
+.favorite-song-copy h2 { margin: 0; color: #392444; font-size: 17px; font-weight: 900; }
+.favorite-song-copy p { margin: 2px 0 0; color: #76677d; font-size: 11px; line-height: 1.7; }
+.favorite-song-card > button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; flex: 0 0 auto; min-height: 40px; padding: 0 14px; border: 0; border-radius: 11px; background: #ff007f; color: #fff; font-size: 11px; font-weight: 900; }
+.favorite-song-overlay { z-index: 35; overflow-y: auto; }
+.favorite-song-modal { position: relative; width: min(100%, 850px); padding: 24px; border-radius: 24px; background: #fff; box-shadow: 0 20px 60px #0005; }
+.favorite-song-modal-heading { display: flex; align-items: center; gap: 11px; padding: 0 34px 16px 0; }
+.favorite-song-modal-heading h2 { margin: 2px 0 0; color: #392444; font-size: 22px; font-weight: 900; }
+.favorite-song-video { display: block; width: 100%; max-height: min(70vh, 540px); border-radius: 15px; background: #211a2a; box-shadow: 0 8px 25px #30203d20; }
+.favorite-song-caption { margin: 11px 2px 0; color: #76677d; font-size: 11px; font-weight: 700; text-align: center; }
+@media (max-width: 520px) {
+  .favorite-song-card { flex-wrap: wrap; gap: 10px; padding: 13px; }
+  .favorite-song-copy { flex-basis: calc(100% - 57px); }
+  .favorite-song-card > button { width: 100%; }
+  .favorite-song-modal { padding: 17px 12px 14px; border-radius: 19px; }
+  .favorite-song-modal-heading h2 { font-size: 17px; }
+  .favorite-song-video { border-radius: 11px; }
+}
