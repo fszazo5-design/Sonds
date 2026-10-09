@@ -2,12 +2,11 @@ name: Build Android APK
 
 on:
   push:
-    branches: [main]
     tags: ['v*']
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'اختياري: أنشئ أو حدّث Release بهذا الوسم (مثال: v1.0.3)'
+        description: 'اختياري: أنشئ أو حدّث APK أصليًا بهذا الوسم (مثال: v1.0.6)'
         required: false
         type: string
 

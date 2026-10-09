@@ -10,18 +10,22 @@ import android.os.Bundle
 import android.provider.Settings
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
+import android.webkit.WebSettings
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.webkit.WebViewAssetLoader
-import androidx.webkit.WebViewClientCompat
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
     private lateinit var assetLoader: WebViewAssetLoader
     private lateinit var database: PlanDatabase
     private lateinit var appUpdater: AppUpdater
+    private var localFallbackLoaded = false
+    private var userRequestedOtaRefresh = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,31 +54,63 @@ class MainActivity : Activity() {
             settings.allowContentAccess = false
             settings.allowFileAccessFromFileURLs = false
             settings.allowUniversalAccessFromFileURLs = false
-            settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             webChromeClient = WebChromeClient()
-            webViewClient = object : WebViewClientCompat() {
+            webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(
                     view: WebView,
                     request: WebResourceRequest
-                ): WebResourceResponse? = assetLoader.shouldInterceptRequest(request.url)
+                ): WebResourceResponse? {
+                    return if (request.url.host == LOCAL_ASSET_HOST) {
+                        assetLoader.shouldInterceptRequest(request.url)
+                    } else {
+                        null
+                    }
+                }
 
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val url = request.url
-                    return !(url.scheme == "https" && url.host == "appassets.androidplatform.net")
+                    val isLocalAsset = url.scheme == "https" && url.host == LOCAL_ASSET_HOST
+                    val isTrustedRemoteUi = url.scheme == "https" &&
+                        url.host == REMOTE_UI_HOST && url.path.orEmpty().startsWith(REMOTE_UI_PATH)
+                    return !(isLocalAsset || isTrustedRemoteUi)
+                }
+
+                override fun onReceivedError(
+                    view: WebView,
+                    request: WebResourceRequest,
+                    error: WebResourceError
+                ) {
+                    super.onReceivedError(view, request, error)
+                    if (request.isForMainFrame && request.url.host == REMOTE_UI_HOST) {
+                        fallbackToBundledUi()
+                    }
+                }
+
+                override fun onReceivedHttpError(
+                    view: WebView,
+                    request: WebResourceRequest,
+                    errorResponse: WebResourceResponse
+                ) {
+                    super.onReceivedHttpError(view, request, errorResponse)
+                    if (request.isForMainFrame && request.url.host == REMOTE_UI_HOST && errorResponse.statusCode >= 400) {
+                        fallbackToBundledUi()
+                    }
+                }
+
+                override fun onPageFinished(view: WebView, url: String) {
+                    view.settings.cacheMode = WebSettings.LOAD_DEFAULT
+                    if (url.startsWith(REMOTE_UI_BASE_URL) && userRequestedOtaRefresh) {
+                        userRequestedOtaRefresh = false
+                        Toast.makeText(this@MainActivity, "تم تحميل أحدث واجهة للتطبيق", Toast.LENGTH_SHORT).show()
+                    }
+                    super.onPageFinished(view, url)
                 }
             }
             addJavascriptInterface(AppBridge(), "AndroidBridge")
         }
         setContentView(webView)
-        val restoredState = savedInstanceState?.let { webView.restoreState(it) }
-        if (restoredState == null || !webView.url.orEmpty().startsWith(APP_ASSET_BASE_URL)) {
-            webView.loadUrl(APP_ASSET_START_URL)
-        }
-    }
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        webView.saveState(outState)
-        super.onSaveInstanceState(outState)
+        webView.loadUrl("$REMOTE_UI_START_URL?ota=${System.currentTimeMillis()}")
     }
 
     override fun onResume() {
@@ -92,9 +128,33 @@ class MainActivity : Activity() {
         if (::webView.isInitialized && webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
 
+    private fun refreshRemoteUi() = runOnUiThread {
+        localFallbackLoaded = false
+        userRequestedOtaRefresh = true
+        webView.clearCache(false)
+        webView.settings.cacheMode = WebSettings.LOAD_NO_CACHE
+        webView.loadUrl("$REMOTE_UI_START_URL?ota=${System.currentTimeMillis()}")
+        Toast.makeText(this, "جارٍ التحقق من تحديثات الواجهة عبر GitHub…", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun fallbackToBundledUi() = runOnUiThread {
+        if (localFallbackLoaded) return@runOnUiThread
+        localFallbackLoaded = true
+        webView.settings.cacheMode = WebSettings.LOAD_DEFAULT
+        webView.loadUrl(APP_ASSET_START_URL)
+        if (userRequestedOtaRefresh) {
+            userRequestedOtaRefresh = false
+            Toast.makeText(this, "تعذّر الاتصال؛ فُتحت النسخة المحلية المحفوظة", Toast.LENGTH_LONG).show()
+        }
+    }
+
     private companion object {
-        const val APP_ASSET_BASE_URL = "https://appassets.androidplatform.net/assets/www/"
+        const val LOCAL_ASSET_HOST = "appassets.androidplatform.net"
         const val APP_ASSET_START_URL = "https://appassets.androidplatform.net/assets/www/index.html"
+        const val REMOTE_UI_HOST = "fszazo5-design.github.io"
+        const val REMOTE_UI_PATH = "/Sonds/"
+        const val REMOTE_UI_BASE_URL = "https://fszazo5-design.github.io/Sonds/"
+        const val REMOTE_UI_START_URL = REMOTE_UI_BASE_URL
     }
 
     inner class AppBridge {
@@ -119,6 +179,9 @@ class MainActivity : Activity() {
         } catch (error: Exception) {
             "error:${error.message.orEmpty()}"
         }
+
+        @JavascriptInterface
+        fun refreshWebApp() = refreshRemoteUi()
 
         @JavascriptInterface
         fun checkForAppUpdate() = appUpdater.checkForUpdate()

@@ -10,6 +10,7 @@ declare global {
       requestCameraPermission(): void;
       requestMicrophonePermission(): void;
       requestExactAlarmAccess(): void;
+      refreshWebApp(): void;
       checkForAppUpdate(): void;
     };
   }
