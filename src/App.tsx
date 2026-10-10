@@ -35,7 +35,7 @@ import {
   Zap,
   type LucideProps,
 } from 'lucide-react';
-import ActivityGames, { type ActivityGameStats, type CustomActivity } from './components/ActivityGames';
+import ActivityGames, { type ActivityGameStats, type CustomActivity, type GameReminderSettings } from './components/ActivityGames';
 import WaterTrackerPage, { type WaterTrackingData } from './components/WaterTrackerPage';
 import { chooseMealMessage, getMealMessageCategory } from './components/mealMessages';
 import favoriteSongVideo from './assets/favorite-song-with-sundus.mp4';
@@ -70,7 +70,7 @@ type Reward = {
   unlocked: boolean;
 };
 
-type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; water?: WaterTrackingData; mealMessages?: Record<string, string>; achievementVersion?: number };
+type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; gameReminders?: GameReminderSettings; water?: WaterTrackingData; mealMessages?: Record<string, string>; achievementVersion?: number };
 
 const defaultMeals: Meal[] = [
   {
@@ -184,6 +184,7 @@ function App() {
   const [activeNav, setActiveNav] = useState('home');
   const [activityGameStats, setActivityGameStats] = useState<ActivityGameStats>(() => bootData.activityGames ?? { sessions: bootData.jumpRope?.sessions ?? 0, totalReps: bootData.jumpRope?.totalJumps ?? 0, bestReps: bootData.jumpRope?.bestJumps ?? 0 });
   const [customActivities, setCustomActivities] = useState<CustomActivity[]>(() => bootData.customActivities ?? []);
+  const [gameReminders, setGameReminders] = useState<GameReminderSettings>(() => bootData.gameReminders ?? {});
   const [mealMessages, setMealMessages] = useState<Record<string, string>>(() => bootData.mealMessages ?? {});
   const [waterData, setWaterData] = useState<WaterTrackingData>(() => ({
     dailyGoal: Math.min(16, Math.max(4, bootData.water?.dailyGoal ?? 8)),
@@ -278,6 +279,7 @@ function App() {
       jumpRope: bootData.jumpRope,
       activityGames: activityGameStats,
       customActivities,
+      gameReminders,
       water: waterData,
       mealMessages,
       achievementVersion: ACHIEVEMENT_SYSTEM_VERSION,
@@ -288,14 +290,17 @@ function App() {
       // SQLite through the Android bridge remains the durable source on file-based WebView origins.
     }
     window.AndroidBridge?.saveState(JSON.stringify(payload));
-  }, [checked, meals, rewards, activityGameStats, customActivities, bootData.jumpRope, waterData, mealMessages, score, streak, today]);
+  }, [checked, meals, rewards, activityGameStats, customActivities, gameReminders, bootData.jumpRope, waterData, mealMessages, score, streak, today]);
 
   useEffect(() => {
     const waterReminders = waterData.remindersEnabled
       ? waterData.reminderTimes.map((time) => ({ id: `water-reminder-${time.replace(':', '-')}`, title: 'شرب الماء', time }))
       : [];
-    window.AndroidBridge?.saveSchedule(JSON.stringify([...meals.map(({ id, title, time }) => ({ id, title, time })), ...waterReminders]));
-  }, [meals, waterData.remindersEnabled, waterData.reminderTimes]);
+    const gameSchedule = Object.entries(gameReminders)
+      .filter(([, reminder]) => reminder.enabled && /^([01]\d|2[0-3]):[0-5]\d$/.test(reminder.time))
+      .map(([gameId, reminder]) => ({ id: `game-${gameId}`, title: customActivities.find((game) => game.id === gameId)?.title ?? ({ pushups: 'ضغط على الحائط', plank: 'تحدّي البلانك', squats: 'قرفصاء الكرسي', dance: 'رقصة النجوم', stretch: 'تمدد وراحة' }[gameId] ?? 'لعبتك اليومية'), time: reminder.time }));
+    window.AndroidBridge?.saveSchedule(JSON.stringify([...meals.map(({ id, title, time }) => ({ id, title, time })), ...waterReminders, ...gameSchedule]));
+  }, [meals, waterData.remindersEnabled, waterData.reminderTimes, gameReminders, customActivities]);
 
 
 
@@ -494,7 +499,7 @@ function App() {
         {mealSaveNotice && <p className="meal-save-notice" role="status" aria-live="polite">{mealSaveNotice}</p>}
       </section>
 
-      <ActivityGames active={activeNav === 'games'} customGames={customActivities} stats={activityGameStats} onCustomGamesChange={setCustomActivities} onComplete={recordActivityGame} />
+      <ActivityGames active={activeNav === 'games'} customGames={customActivities} reminders={gameReminders} onRemindersChange={setGameReminders} stats={activityGameStats} onCustomGamesChange={setCustomActivities} onComplete={recordActivityGame} />
 
       <section hidden={activeNav !== 'trophy' && activeNav !== 'info'} className="bottom-grid single-panel">
         <div hidden={activeNav !== 'trophy'} className="reward-card">
@@ -512,7 +517,7 @@ function App() {
 
       <footer hidden={activeNav !== 'home'}><span>صُنع بحب لسندس</span><span>تذكري: كل خطوة صغيرة انتصار كبير <Heart size={14} fill="currentColor" /></span></footer>
 
-      {showPermissionSettings && <div className="celebration-overlay permission-overlay"><section className="permission-modal" role="dialog" aria-modal="true" aria-labelledby="permission-title"><button className="close-modal" onClick={() => setShowPermissionSettings(false)} aria-label="إغلاق"><X size={18} /></button><div className="permission-icon"><ShieldCheck size={27} /></div><span className="section-kicker">إعدادات الجهاز</span><h2 id="permission-title">الأذونات والتنبيهات</h2><p>يظهر طلب السماح تلقائيًا عند فتح التطبيق، ويمكنك إعادة طلبه من هنا.</p><div className="permission-actions"><button onClick={() => window.AndroidBridge?.checkForAppUpdate()}><Download size={19} /><span><b>تحديث نظام Android (APK)</b><small>للتغييرات الأصلية في Kotlin أو أذونات الجهاز فقط</small></span></button><button onClick={() => window.AndroidBridge?.requestNotificationPermission()}><Bell size={19} /><span><b>السماح بتنبيهات الوجبات والماء</b><small>تذكيرات محلية لجدول الوجبات ومواعيد الماء</small></span></button><button onClick={() => window.AndroidBridge?.requestExactAlarmAccess()}><Clock size={19} /><span><b>ضبط دقة مواعيد التنبيه</b><small>يفتح إعدادات المنبهات الدقيقة في Android</small></span></button><button onClick={() => window.AndroidBridge?.requestCameraPermission()}><Camera size={19} /><span><b>إذن الكاميرا</b><small>السماح باستخدام الكاميرا عند الحاجة</small></span></button><button onClick={() => window.AndroidBridge?.requestMicrophonePermission()}><Mic size={19} /><span><b>إذن الميكروفون</b><small>السماح باستخدام الميكروفون عند الحاجة</small></span></button></div></section></div>}
+      {showPermissionSettings && <div className="celebration-overlay permission-overlay"><section className="permission-modal" role="dialog" aria-modal="true" aria-labelledby="permission-title"><button className="close-modal" onClick={() => setShowPermissionSettings(false)} aria-label="إغلاق"><X size={18} /></button><div className="permission-icon"><ShieldCheck size={27} /></div><span className="section-kicker">إعدادات الجهاز</span><h2 id="permission-title">الأذونات والتنبيهات</h2><p>يظهر طلب السماح تلقائيًا عند فتح التطبيق، ويمكنك إعادة طلبه من هنا.</p><div className="permission-actions"><button onClick={() => window.AndroidBridge?.checkForAppUpdate()}><Download size={19} /><span><b>تحديث نظام Android (APK)</b><small>للتغييرات الأصلية في Kotlin أو أذونات الجهاز فقط</small></span></button><button onClick={() => window.AndroidBridge?.requestNotificationPermission()}><Bell size={19} /><span><b>السماح بتنبيهات الوجبات والماء والألعاب</b><small>تذكيرات محلية للوجبات والماء ومواعيد الألعاب</small></span></button><button onClick={() => window.AndroidBridge?.requestExactAlarmAccess()}><Clock size={19} /><span><b>ضبط دقة مواعيد التنبيه</b><small>يفتح إعدادات المنبهات الدقيقة في Android</small></span></button><button onClick={() => window.AndroidBridge?.requestCameraPermission()}><Camera size={19} /><span><b>إذن الكاميرا</b><small>السماح باستخدام الكاميرا عند الحاجة</small></span></button><button onClick={() => window.AndroidBridge?.requestMicrophonePermission()}><Mic size={19} /><span><b>إذن الميكروفون</b><small>السماح باستخدام الميكروفون عند الحاجة</small></span></button></div></section></div>}
 
       {showFavoriteSong && <div className="celebration-overlay favorite-song-overlay" onClick={() => setShowFavoriteSong(false)}><section className="favorite-song-modal" role="dialog" aria-modal="true" aria-labelledby="favorite-song-title" onClick={(event) => event.stopPropagation()}><button className="close-modal" onClick={() => setShowFavoriteSong(false)} aria-label="إغلاق الفيديو"><X size={18} /></button><div className="favorite-song-modal-heading"><div className="favorite-song-icon"><Music2 size={22} /></div><div><span className="section-kicker">أغنية سندس</span><h2 id="favorite-song-title">أغنيتي المفضلة مع سندس</h2></div></div><video className="favorite-song-video" controls playsInline preload="metadata" src={favoriteSongVideo} /><p className="favorite-song-caption">استمتعي بالمشاهدة والاستماع مع كلمات الأغنية.</p></section></div>}
 

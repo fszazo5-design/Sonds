@@ -340,13 +340,14 @@ footer { display: flex; justify-content: space-between; padding: 25px 0; color: 
 
 
 /* Android startup: fit the complete 16:9 frame inside the available screen without cropping. */
-.startup-splash { display: grid; place-items: center; align-items: stretch; background: #000; }
-.startup-splash-video { object-fit: contain; object-position: center center; background: #000; }
+.startup-splash { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; min-height: 100svh; display: grid; place-items: center; align-items: stretch; overflow: hidden; background: #000; }
+.startup-splash-video { position: absolute; inset: 0; display: block; width: 100%; height: 100%; max-width: 100vw; max-height: 100dvh; object-fit: contain; object-position: center center; background: #000; }
 .startup-splash-shade, .startup-splash-content { display: none; }
 .startup-splash-controls { position: absolute; z-index: 4; right: calc(12px + env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom)); display: flex; gap: 10px; pointer-events: none; }
 .startup-splash-control { display: grid; width: 46px; height: 46px; place-items: center; padding: 0; border: 1px solid #ffffffa6; border-radius: 50%; background: #201629b8; color: #fff; box-shadow: 0 4px 16px #0008; backdrop-filter: blur(8px); pointer-events: auto; }
 .startup-splash-control:active { transform: scale(.93); }
 @media (max-width: 520px) { .startup-splash-controls { right: calc(10px + env(safe-area-inset-right)); bottom: calc(10px + env(safe-area-inset-bottom)); gap: 8px; } .startup-splash-control { width: 43px; height: 43px; } }
+@media (max-height: 420px) { .startup-splash-controls { right: calc(8px + env(safe-area-inset-right)); bottom: calc(8px + env(safe-area-inset-bottom)); gap: 7px; } .startup-splash-control { width: 38px; height: 38px; } }
 
 
 /* Illustrated movement-game library and editor. */
@@ -383,6 +384,13 @@ footer { display: flex; justify-content: space-between; padding: 25px 0; color: 
 .game-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; color: #746579; font-size: 9px; font-weight: 800; }
 .game-meta span { display: inline-flex; align-items: center; gap: 4px; }
 .game-meta svg { color: #d50070; }
+.game-reminder-row { display: flex; align-items: center; justify-content: space-between; gap: 7px; margin-top: 9px; padding: 6px 8px; border: 1px solid #f2e4ef; border-radius: 10px; background: #fff8fc; }
+.game-reminder-toggle { display: inline-flex; min-height: 30px; align-items: center; gap: 6px; color: #76536f; font-size: 9px; font-weight: 900; cursor: pointer; }
+.game-reminder-toggle input { width: 16px; height: 16px; margin: 0; accent-color: #e60075; }
+.game-reminder-toggle svg { color: #d50070; }
+.game-reminder-time { width: 91px; min-height: 31px; padding: 3px 6px; border: 1px solid #e9dce8; border-radius: 8px; background: #fff; color: #48364f; font: 800 11px/1.2 'Cairo', sans-serif; direction: ltr; }
+.game-reminder-time:disabled { background: #f4f0f4; color: #a398a6; }
+.game-reminder-time:focus-visible, .game-reminder-toggle input:focus-visible { outline: 2px solid #ffc0dc; outline-offset: 2px; }
 .game-play-button { display: flex; width: 100%; align-items: center; justify-content: center; gap: 6px; min-height: 37px; margin-top: 10px; border: 0; border-radius: 10px; background: #ff007f; color: #fff; font-size: 10px; font-weight: 900; }
 .add-game-card { display: flex; min-height: 285px; flex-direction: column; align-items: center; justify-content: center; gap: 9px; padding: 20px; border: 2px dashed #e9c8dc; border-radius: 18px; background: linear-gradient(150deg, #fff9fc, #fffdf4); color: #8b5573; text-align: center; }
 .add-game-icon { display: grid; width: 57px; height: 57px; place-items: center; border-radius: 18px; background: #ffe0ef; color: #d50070; }

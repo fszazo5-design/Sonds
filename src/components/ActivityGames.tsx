@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, Check, Clock3, Flame, Heart, Pause, Play, Plus, RotateCcw, Save, Sparkles, Star, Timer, Trophy, X } from 'lucide-react';
+import { Activity, Bell, Check, Clock3, Flame, Heart, Pause, Play, Plus, RotateCcw, Save, Sparkles, Star, Timer, Trophy, X } from 'lucide-react';
 import wallPushupsArt from '../assets/game-wall-pushups.webp';
 import plankArt from '../assets/game-plank.webp';
 import squatsArt from '../assets/game-squats.webp';
@@ -17,6 +17,7 @@ export type CustomActivity = {
 };
 
 export type ActivityGameStats = { sessions: number; totalReps: number; bestReps: number };
+export type GameReminderSettings = Record<string, { enabled: boolean; time: string }>;
 
 export type ActivityGame = {
   id: string;
@@ -54,12 +55,14 @@ const clock = (n: number) => `${String(Math.floor(n / 60)).padStart(2, '0')}:${S
 type Props = {
   active: boolean;
   customGames: CustomActivity[];
+  reminders: GameReminderSettings;
+  onRemindersChange: (reminders: GameReminderSettings) => void;
   stats: ActivityGameStats;
   onCustomGamesChange: (games: CustomActivity[]) => void;
   onComplete: (reps: number) => void;
 };
 
-export default function ActivityGames({ active, customGames, stats, onCustomGamesChange, onComplete }: Props) {
+export default function ActivityGames({ active, customGames, reminders, onRemindersChange, stats, onCustomGamesChange, onComplete }: Props) {
   const games: ActivityGame[] = [
     ...starterGames.map((game) => ({ ...game, art: illustrations[game.id] })),
     ...customGames.map((game, index) => ({ ...game, level: 'لعبتك', color: ['rose', 'mint', 'peach', 'lilac', 'sky'][index % 5], icon: '✨' })),
@@ -98,6 +101,7 @@ export default function ActivityGames({ active, customGames, stats, onCustomGame
     const title = form.title.trim();
     const duration = Number(form.duration);
     if (!title) { setFormError('اكتبي اسم اللعبة.'); return; }
+    if (title.length > 100) { setFormError('اسم اللعبة يجب ألا يتجاوز 100 حرف.'); return; }
     if (!Number.isFinite(duration) || duration < 5 || duration > 300) { setFormError('اختاري مدة بين 5 و300 ثانية.'); return; }
     const item: CustomActivity = {
       id: `custom-game-${Date.now()}`,
@@ -132,6 +136,10 @@ export default function ActivityGames({ active, customGames, stats, onCustomGame
               <span className="game-level">{game.level}</span>
             </button>
             <div className="activity-game-copy"><h4>{game.title}</h4><p>{game.description}</p><div className="game-meta"><span><Clock3 size={13} /> {fmt(game.duration)} ث</span><span>{game.mode === 'hold' ? 'ثبات' : 'عدّاد'}</span></div>
+              {(() => {
+                const reminder = reminders[game.id] ?? { enabled: false, time: '18:00' };
+                return <div className="game-reminder-row"><label className="game-reminder-toggle"><input type="checkbox" checked={reminder.enabled} onChange={(event) => onRemindersChange({ ...reminders, [game.id]: { ...reminder, enabled: event.target.checked } })} /><Bell size={14} /><span>تنبيه يومي</span></label><input className="game-reminder-time" type="time" aria-label={`موعد التنبيه اليومي للعبة ${game.title}`} value={reminder.time} disabled={!reminder.enabled} onChange={(event) => onRemindersChange({ ...reminders, [game.id]: { ...reminder, time: event.target.value } })} /></div>;
+              })()}
               <button type="button" className="game-play-button" onClick={() => openGame(game)}><Play size={15} fill="currentColor" /> ابدئي اللعب</button>
             </div>
           </article>
