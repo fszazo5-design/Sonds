@@ -34,6 +34,9 @@ jobs:
           cache: npm
 
       - name: Install web dependencies and build React assets
+        env:
+          # عنوان عام؛ لا نضع NEON_DATABASE_URL داخل React أو APK.
+          VITE_NEON_API_URL: https://sonds.fszazo5.workers.dev
         run: |
           npm ci
           npm run build

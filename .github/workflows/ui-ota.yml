@@ -27,7 +27,8 @@ jobs:
 
       - name: Build the UI with relative asset paths
         env:
-          VITE_NEON_API_URL: ${{ vars.VITE_NEON_API_URL }}
+          # عنوان عام؛ سر NEON_DATABASE_URL يبقى داخل Cloudflare Worker فقط.
+          VITE_NEON_API_URL: https://sonds.fszazo5.workers.dev
         run: |
           npm ci
           npm run build
