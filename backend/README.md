@@ -1,59 +1,75 @@
-# Sonds API مع Neon
+# Backend تطبيق سندس — Cloudflare Workers + Neon
 
-يضيف هذا المجلد واجهة HTTP مستقلة لمزامنة خطة التطبيق مع PostgreSQL في Neon. الواجهة اختيارية: إذا لم يُضبط `VITE_NEON_API_URL` في بناء React، يستمر التطبيق في حفظ بياناته محليًا بالطريقة الحالية ولا يرسل طلبات إلى الإنترنت.
+هذا المجلد يضيف API مزامنة صغيرًا. واجهة React تواصل الحفظ محليًا ما لم يُضبط `VITE_NEON_API_URL` أثناء بناء OTA. لا يُضمَّن `NEON_DATABASE_URL` في React أو APK.
 
-## الملفات والواجهة
+## ما وجدته في حساب Cloudflare الحالي
 
-- `server.mjs`: خادم Node.js مع `GET /health` و`POST /v1/sync`.
-- `migrations/001_create_device_sync.sql`: migration آمن وقابل لإعادة التشغيل؛ ينشئ جدولًا وفهرسًا جديدين ولا يغيّر جداول أخرى.
-- `sync-core.mjs`: التحقق من مفاتيح التثبيت وحجم البيانات والحقول السرية.
-- `sync-core.test.mjs`: اختبارات وحدات لا تحتاج إلى حساب Neon أو أي أسرار.
+يوجد Worker باسم `sonds`، لكن مصدره المنشور هو قالب لوحة Cloudflare الافتراضي الذي يعيد `Hello world`. إعداداته لا تحتوي أي secret أو binding. كما أن `workers.dev` غير مفعّل للعامل نفسه، رغم أن النطاق الفرعي للحساب هو `fszazo5`.
 
-يدعم `POST /v1/sync` إجراءي `pull` و`push`. يستخدم التطبيق معرّفًا عشوائيًا لكل تثبيت ومفتاحًا عشوائيًا محليًا بطول 256 بت. يُحفظ المفتاح في SQLite/localStorage على الجهاز؛ يرسل التطبيق المفتاح إلى الـAPI عبر HTTPS، لكن قاعدة البيانات تحفظ بصمة SHA-256 فقط. لا توجد حسابات دخول أو مزامنة بين أجهزة مختلفة في هذا الإصدار.
+الملف `../wrangler.toml` يجهّز الاسم نفسه `sonds`، ويحدد `workers_dev = true`، فيُفترض أن يظهر بعد النشر العنوان العام `https://sonds.fszazo5.workers.dev`. لم أستبدل العامل المنشور؛ يحتاج النشر إلى الأسرار المحددة أدناه.
 
-## تشغيل الاختبارات والخادم محليًا
+## الملفات
 
-المشروع يتطلب Node.js 22، وهو إصدار CI المستخدم لبناء واجهة OTA.
+- `worker.mjs`: Cloudflare Worker، فيه `GET /health` و`POST /v1/sync`، ويتصل بـNeon باستخدام `@neondatabase/serverless`.
+- `server.mjs`: بديل Node.js مستقل، غير لازم لنشر Cloudflare.
+- `migrations/001_create_device_sync.sql`: migration قابل لإعادة التشغيل؛ ينشئ جدولًا جديدًا وفهرسًا ولا يعدّل جداول أخرى.
+- `sync-core.mjs`: تحقق مشترك من بيانات الأجهزة وحجم الخطة.
+- `worker.test.mjs` و`sync-core.test.mjs`: اختبارات لا تحتاج إلى اتصال حقيقي بقاعدة Neon.
+- `.github/workflows/cloudflare-worker.yml`: نشر يدوي بعد تحقق الأسرار وتشغيل الفحوص.
+- `.github/workflows/neon-migrate.yml`: تشغيل يدوي منفصل للـmigration.
+
+الاتصال يستخدم Neon driver عبر HTTP، المناسب لطلبات المزامنة الخفيفة عديمة الحالة. Cloudflare/Neon يوثّقان أيضًا Hyperdrive كخيار pooling للاتصالات ذات الحجم الأكبر؛ لم أُنشئ Hyperdrive أو مستخدم قاعدة بيانات لأن ذلك يحتاج اختيار مشروع Neon وصلاحياته أولًا.
+
+## إعداد GitHub Secrets
+
+في المستودع `fszazo5-design/Sonds`، افتحي **Settings → Secrets and variables → Actions → New repository secret**، ثم أضيفي:
+
+- `NEON_DATABASE_URL`: عنوان الاتصال لقاعدة Neon التي اخترتها، كـSecret لا كـVariable.
+- `CLOUDFLARE_API_TOKEN`: Cloudflare API Token بصلاحية **Edit Cloudflare Workers** على الحساب المقصود.
+- `CLOUDFLARE_ACCOUNT_ID`: معرّف حساب Cloudflare.
+
+لا ترسلي هذه القيم في المحادثة. Worker لا يحتاج أن تضعي عنوان Neon في ملف Wrangler؛ الـworkflow ينقله كـCloudflare Worker secret باسم `NEON_DATABASE_URL` دون طباعته. عنوان الـAPI العام وحده يدخل لاحقًا في build الواجهة.
+
+## اختيار مشروع Neon قبل الـmigration
+
+لم يظهر مشروع Neon باسم `Sonds` أو `sundus`. المشروع الذي يظهر باسم `zazo` يحتوي حاليًا جداول `neon_auth` وجدولًا عامًا باسم `portfolio_content`؛ لم أستخدمه ولم أشغّل عليه migration. اختاري المشروع/الفرع الذي تريدينه من Neon، وخذي connection string لذلك الاختيار، ثم خزّنيه باسم `NEON_DATABASE_URL` في GitHub Secrets. لا تنفّذي الترحيل قبل التأكد من المشروع والفرع المقصودين.
+
+بعد حفظ السر، شغّلي **Actions → Apply Neon migration → Run workflow**. ثم شغّلي **Actions → Deploy Sonds Cloudflare API → Run workflow**. نشر الـWorker Workflow يدوي ولا يُطلق مع كل commit، لتجنب نشر API قبل تجهيز Neon.
+
+## تفعيل المزامنة في الواجهة بعد نجاح Worker
+
+بعد انتهاء نشر Cloudflare وفحص `https://sonds.fszazo5.workers.dev/health`، أضيفي في **Settings → Secrets and variables → Actions → Variables** متغيرًا عاديًا اسمه `VITE_NEON_API_URL` وقيمته:
+
+```text
+https://sonds.fszazo5.workers.dev
+```
+
+هذا العنوان عام وليس سرًا. بعد ذلك أعيدي تشغيل **Actions → Publish Android UI OTA to GitHub Releases** حتى تحمل الواجهة عنوان الخدمة وتبدأ المزامنة. إلى ذلك الحين تستمر البيانات محليًا على الجهاز.
+
+## تشغيل محلي وفحوص
 
 ```bash
 npm ci
 npm run backend:test
-npm run backend:check
+npm run worker:test
+npm run worker:check
 ```
 
-للتشغيل المحلي، انسخي `backend/.env.example` إلى `backend/.env` وضعي عنوان Neon في ذلك الملف المحلي غير المتعقّب، ثم:
+للتشغيل عبر Wrangler تحتاج `.dev.vars` محليًا، وهو مستثنى من Git. لا تحفظي connection string في ملفات متعقّبة. للاختبار دون قاعدة Neon:
 
 ```bash
-node --env-file=backend/.env backend/server.mjs
+npx wrangler dev --config wrangler.toml
 ```
 
-اختبري حالة الخدمة عبر `GET http://localhost:8787/health`. لا يطبّق الخادم migration تلقائيًا؛ يجب إنشاء الجدول أولًا.
-
-## إعداد GitHub Secret وتشغيل migration يدويًا
-
-1. في GitHub افتحي مستودع `fszazo5-design/Sonds` ثم **Settings → Secrets and variables → Actions → New repository secret**.
-2. أنشئي Secret باسم `NEON_DATABASE_URL`، وضعي فيه connection string لقاعدة Neon. لا ترسليه في المحادثة، ولا تضعيه في ملف داخل Git أو في متغير يبدأ بـ`VITE_`.
-3. افتحي **Actions → Apply Neon migration → Run workflow** لتشغيل الملف `migrations/001_create_device_sync.sql` مرة واحدة. الـworkflow يدوي فقط ولا يعمل تلقائيًا مع كل دفع.
-
-المهاجرات لا تُطبّق في هذه الجلسة؛ أضيفي السر أولًا ثم شغّليها من GitHub عندما تكونين جاهزة. الملف `CREATE TABLE IF NOT EXISTS` قابل لإعادة التشغيل.
-
-## الاستضافة عند اختيارها لاحقًا
-
-يحتاج هذا الكود إلى مضيف Node.js يشغّل `node backend/server.mjs` ويتيح اتصال HTTPS صادرًا إلى Neon. لم يُنشأ مضيف أو عنوان API ضمن هذا التغيير.
-
-على المضيف المختار، عيّني `NEON_DATABASE_URL` كسرّ **وقت التشغيل**، وعيّني `ALLOWED_ORIGINS` إذا تغيّر أصل التطبيق. لا يكفي تخزين السر في GitHub Actions وحده كي يراه خادم التشغيل.
-
-بعد معرفة عنوان الخدمة، أضيفي متغير مستودع عادي (ليس Secret) باسم `VITE_NEON_API_URL` إلى **Settings → Secrets and variables → Actions → Variables**، وقيمته أصل الـAPI فقط مثل `https://api.example.com`. عنوان API عام بطبيعته؛ بيانات الاتصال بقاعدة Neon ليست كذلك. أعيدي بعدها تشغيل Workflow **Publish Android UI OTA to GitHub Releases** من `Actions` حتى تُبنى الواجهة مع هذا العنوان.
-
-يُسمح CORS افتراضيًا لأصل Android `https://appassets.androidplatform.net`، وGitHub Pages للمستودع، وVite على `localhost:5173`. إذا استُخدم أصل مختلف، مرّري القائمة الدقيقة مفصولة بفواصل في `ALLOWED_ORIGINS` على المضيف. لا تضيفي `*`.
+اختبري `GET /health`؛ ستظهر `databaseConfigured: false` ما لم تُضفّي secret محليًا أو على Cloudflare.
 
 ## الخصوصية والحدود
 
-يبقى التخزين المحلي هو النسخة العاملة دون اتصال. عند تهيئة عنوان الـAPI، يدفع التطبيق الخطة الحالية إلى Neon بعد التغييرات، ويحاول جلب نسخة أحدث عند بدء التشغيل. تشمل الخطة سجل الوجبات والماء والوزن الاختياري والمكافآت والألعاب؛ تُستثنى مفاتيح المزامنة المحلية وتوقيتها من بيانات JSON المرسلة إلى Neon.
+يستخدم كل تثبيت معرّفًا عشوائيًا ومفتاحًا محليًا بطول 256 بت. يرسل التطبيق المفتاح عبر HTTPS، لكن قاعدة Neon تحتفظ ببصمة SHA-256 فقط. بيانات الخطة تُحفظ في JSONB؛ وتشمل الوجبات والماء والوزن الاختياري والإنجازات والألعاب. لا يوجد تسجيل دخول أو نقل تلقائي بين الأجهزة في هذا الإصدار.
 
-مفتاح التثبيت ليس حسابًا ولا وسيلة لاستعادة البيانات بعد حذف بيانات التطبيق أو الانتقال إلى جهاز آخر؛ يلزم في هذه الحالة إصدار لاحق يتيح نقل/استعادة بيانات الاعتماد أو إضافة تسجيل دخول. حاليًا يُحفظ سجل الخطة في JSONB دون تشفير على مستوى التطبيق؛ استخدمي اتصال HTTPS، واحفظي مفتاح Neon لدى الخادم فقط.
+## مراجع المزودين
 
-## مصادر Neon الرسمية
-
-- [دليل Neon للاتصال من Node.js](https://neon.com/docs/guides/node)
-- [مرجع Neon Serverless Driver](https://neon.com/docs/serverless/serverless-driver)
+- [دليل Neon لاستخدامه مع Cloudflare Workers](https://neon.com/docs/guides/cloudflare-workers)
+- [توثيق Cloudflare لتكامل Neon](https://developers.cloudflare.com/workers/databases/third-party-integrations/neon/)
+- [تفعيل مسارات workers.dev](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)
+- [النشر باستخدام GitHub Actions](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/)

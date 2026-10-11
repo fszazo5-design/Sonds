@@ -1,0 +1,2 @@
+# Copy to .dev.vars for local Wrangler testing; never put a real value in this tracked example.
+NEON_DATABASE_URL=

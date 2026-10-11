@@ -1,0 +1,63 @@
+name: Deploy Sonds Cloudflare API
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sonds-cloudflare-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies and verify Worker
+        run: |
+          npm ci
+          npm run backend:test
+          npm run worker:test
+          npm run worker:check
+
+      - name: Verify required secrets are present
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID NEON_DATABASE_URL; do
+            if [[ -z "${!name}" ]]; then
+              echo "Missing GitHub Actions secret: ${name}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Set the Worker-only Neon secret
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$NEON_DATABASE_URL" | npx wrangler secret put NEON_DATABASE_URL --config wrangler.toml
+
+      - name: Deploy Worker to Cloudflare
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config wrangler.toml

@@ -30,7 +30,7 @@ export function serializeSyncState(value) {
     throw error;
   }
   const serialized = JSON.stringify(value);
-  if (Buffer.byteLength(serialized, 'utf8') > MAX_STATE_BYTES) {
+  if (new TextEncoder().encode(serialized).byteLength > MAX_STATE_BYTES) {
     const error = new Error('state_too_large');
     error.code = 'state_too_large';
     throw error;
@@ -38,7 +38,7 @@ export function serializeSyncState(value) {
   return serialized;
 }
 
-export function getAllowedOrigins(raw = process.env.ALLOWED_ORIGINS) {
-  const entries = raw === undefined || raw.trim() === '' ? DEFAULT_ORIGINS : raw.split(',');
+export function getAllowedOrigins(raw) {
+  const entries = typeof raw !== 'string' || raw.trim() === '' ? DEFAULT_ORIGINS : raw.split(',');
   return new Set(entries.map((entry) => entry.trim()).filter(Boolean));
 }

@@ -1,0 +1,7 @@
+name = "sonds"
+main = "backend/worker.mjs"
+compatibility_date = "2026-10-11"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGINS = "https://appassets.androidplatform.net,https://fszazo5-design.github.io"

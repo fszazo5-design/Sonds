@@ -9,7 +9,7 @@ import {
 } from './sync-core.mjs';
 
 const MAX_REQUEST_BYTES = 800 * 1024;
-const allowedOrigins = getAllowedOrigins();
+const allowedOrigins = getAllowedOrigins(process.env.ALLOWED_ORIGINS);
 let sqlClient;
 
 function getSql() {
