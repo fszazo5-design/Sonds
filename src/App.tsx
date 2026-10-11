@@ -151,6 +151,30 @@ const isKnownPage = (page: string): boolean => page === 'water' || navigation.so
 const neonSyncApiUrl = getNeonSyncApiUrl();
 
 const ACHIEVEMENT_SYSTEM_VERSION = 2;
+const playCountdownSound = (): void => {
+  if (window.AndroidBridge?.playGameCountdownSound) {
+    window.AndroidBridge.playGameCountdownSound();
+    return;
+  }
+  try {
+    const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const context = new AudioContextClass();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.value = 740;
+    gain.gain.setValueAtTime(0.0001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.16, context.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.18);
+    oscillator.connect(gain).connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.2);
+    oscillator.addEventListener('ended', () => { void context.close(); }, { once: true });
+  } catch {
+    // بعض المتصفحات تمنع الصوت التلقائي؛ يظل العداد المرئي فعالًا.
+  }
+};
 const readSavedPlan = (): PersistedPlan => {
   try {
     const nativeData = typeof window !== 'undefined' ? window.AndroidBridge?.loadState() : '';
@@ -205,6 +229,7 @@ function App() {
     remindersEnabled: bootData.water?.remindersEnabled ?? true,
     reminderTimes: Array.isArray(bootData.water?.reminderTimes) ? bootData.water.reminderTimes : ['10:00', '13:00', '16:00', '19:00'],
   }));
+  const handleGameCountdownSound = useCallback(() => playCountdownSound(), []);
   const applyRemotePlan = useCallback((remote: Record<string, unknown>): void => {
     const saved = remote as unknown as PersistedPlan;
     if (Array.isArray(saved.meals) && saved.meals.length) setMeals(saved.meals);
@@ -600,7 +625,7 @@ function App() {
         {mealSaveNotice && <p className="meal-save-notice" role="status" aria-live="polite">{mealSaveNotice}</p>}
       </section>
 
-      <ActivityGames active={activeNav === 'games'} customGames={customActivities} reminders={gameReminders} onRemindersChange={setGameReminders} stats={activityGameStats} onCustomGamesChange={setCustomActivities} onComplete={recordActivityGame} />
+      <ActivityGames active={activeNav === 'games'} customGames={customActivities} reminders={gameReminders} onRemindersChange={setGameReminders} stats={activityGameStats} onCustomGamesChange={setCustomActivities} onComplete={recordActivityGame} onCountdownSound={handleGameCountdownSound} />
 
       <section hidden={activeNav !== 'trophy' && activeNav !== 'info'} className="bottom-grid single-panel">
         <div hidden={activeNav !== 'trophy'} className="reward-card">

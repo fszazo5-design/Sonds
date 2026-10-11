@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.media.MediaPlayer
 import android.content.pm.PackageManager
 import android.provider.Settings
 import android.webkit.JavascriptInterface
@@ -30,6 +31,7 @@ class MainActivity : Activity() {
     private lateinit var appUpdater: AppUpdater
     private lateinit var uiBundleUpdater: UiBundleUpdater
     private var userRequestedOtaRefresh = false
+    private var countdownPlayer: MediaPlayer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -144,6 +146,8 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        countdownPlayer?.release()
+        countdownPlayer = null
         if (::appUpdater.isInitialized) appUpdater.unregisterReceiver()
         super.onDestroy()
     }
@@ -209,6 +213,19 @@ class MainActivity : Activity() {
     }
 
     inner class AppBridge {
+        @JavascriptInterface
+        fun playGameCountdownSound() = runOnUiThread {
+            countdownPlayer?.release()
+            countdownPlayer = MediaPlayer.create(this@MainActivity, R.raw.game_countdown_laufey)?.apply {
+                setVolume(0.72f, 0.72f)
+                setOnCompletionListener {
+                    if (countdownPlayer === this) countdownPlayer = null
+                    release()
+                }
+                start()
+            }
+        }
+
         @JavascriptInterface
         fun loadState(): String = database.loadState().orEmpty()
 
