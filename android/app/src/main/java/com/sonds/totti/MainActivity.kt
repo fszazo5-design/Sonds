@@ -227,6 +227,9 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
+        fun playGameEndSound() = playGameCountdownSound()
+
+        @JavascriptInterface
         fun loadState(): String = database.loadState().orEmpty()
 
         @JavascriptInterface

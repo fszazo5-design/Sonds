@@ -12,6 +12,7 @@ declare global {
       requestMicrophonePermission(): void;
       requestExactAlarmAccess(): void;
       playGameCountdownSound(): void;
+      playGameEndSound(): void;
       refreshWebApp(): void;
       checkForAppUpdate(): void;
     };
