@@ -41,7 +41,7 @@ import {
 import ActivityGames, { type ActivityGameStats, type CustomActivity, type GameReminderSettings } from './components/ActivityGames';
 import WaterTrackerPage, { type WaterTrackingData } from './components/WaterTrackerPage';
 import { chooseMealMessage, getMealMessageCategory } from './components/mealMessages';
-import { ensureLocalSyncIdentity, getNeonSyncApiUrl, pullNeonSnapshot, pushNeonSnapshot, type LocalSyncIdentity } from './lib/neonSync';
+import { ensureLocalSyncIdentity, getNeonSyncApiUrl, pullNeonSnapshot, pushNeonEvent, pushNeonSnapshot, type LocalSyncIdentity } from './lib/neonSync';
 import favoriteSongVideo from './assets/favorite-song-with-sundus.mp4';
 import startupVideo from './assets/startup-video.mp4';
 import startupIntroPoster from './assets/startup-intro-poster.jpg';
@@ -230,6 +230,12 @@ function App() {
     reminderTimes: Array.isArray(bootData.water?.reminderTimes) ? bootData.water.reminderTimes : ['10:00', '13:00', '16:00', '19:00'],
   }));
   const handleGameCountdownSound = useCallback(() => playCountdownSound(), []);
+  const recordCloudEvent = useCallback((eventName: string, payload: Record<string, unknown> = {}): void => {
+    if (!neonSyncApiUrl || !syncIdentity) return;
+    void pushNeonEvent(neonSyncApiUrl, syncIdentity, eventName, payload).catch(() => {
+      // سجل الأحداث اختياري؛ لا يعطل الحفظ المحلي أو مزامنة الحالة الكاملة.
+    });
+  }, [syncIdentity]);
   const applyRemotePlan = useCallback((remote: Record<string, unknown>): void => {
     const saved = remote as unknown as PersistedPlan;
     if (Array.isArray(saved.meals) && saved.meals.length) setMeals(saved.meals);
@@ -257,6 +263,7 @@ function App() {
   const changePage = (page: string, replace = false): void => {
     if (page === activeNav) return;
     setActiveNav(page);
+    recordCloudEvent('navigation_changed', { from: activeNav, to: page });
     window.history[replace ? 'replaceState' : 'pushState']({ appPage: page }, '', `#${page}`);
     window.scrollTo(0, 0);
   };
@@ -422,6 +429,7 @@ function App() {
 
   const startMealEdit = (meal: Meal): void => {
     setMealEditor({ mealId: meal.id, draft: { title: meal.title, label: meal.label, time: meal.time, calories: String(meal.calories), items: meal.items.join('\n') } });
+    recordCloudEvent('meal_editor_opened', { mealId: meal.id });
     setMealEditorError('');
   };
 
@@ -449,6 +457,7 @@ function App() {
       const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       setMeals((current) => [...current, { id, ...updated, accent: 'pink', icon: '✦' }]);
     }
+    recordCloudEvent(mealEditor.mealId ? 'meal_updated' : 'meal_created', { mealId: mealEditor.mealId ?? 'new', title });
     setMealEditor(null);
     setMealEditorError('');
     setMealSaveNotice('تم حفظ الوجبة على هذا الجهاز.');
@@ -464,6 +473,7 @@ function App() {
       [reordered[from], reordered[to]] = [reordered[to], reordered[from]];
       return reordered;
     });
+    recordCloudEvent('meal_order_changed', { mealId, offset });
     setMealSaveNotice('تم تحديث ترتيب الوجبات وحفظه على هذا الجهاز.');
     window.setTimeout(() => setMealSaveNotice(''), 3000);
   };
@@ -486,6 +496,7 @@ function App() {
   const toggleMeal = (id: string): void => {
     const wasChecked = checked[id];
     setChecked((current) => ({ ...current, [id]: !current[id] }));
+    recordCloudEvent(wasChecked ? 'meal_unchecked' : 'meal_completed', { mealId: id, date: today });
     if (!wasChecked) {
       const meal = meals.find((item) => item.id === id);
       const messageKey = `${today}:${id}`;
@@ -509,6 +520,7 @@ function App() {
   const addReward = (): void => {
     if (!rewardTitle.trim()) return;
     setRewards((current) => [...current, { id: Date.now(), title: rewardTitle.trim(), note: 'مكافأة من صندوق بابا', unlocked: false }]);
+    recordCloudEvent('reward_created', { title: rewardTitle.trim() });
     setRewardTitle('');
     setShowRewardForm(false);
   };
@@ -625,7 +637,7 @@ function App() {
         {mealSaveNotice && <p className="meal-save-notice" role="status" aria-live="polite">{mealSaveNotice}</p>}
       </section>
 
-      <ActivityGames active={activeNav === 'games'} customGames={customActivities} reminders={gameReminders} onRemindersChange={setGameReminders} stats={activityGameStats} onCustomGamesChange={setCustomActivities} onComplete={recordActivityGame} onCountdownSound={handleGameCountdownSound} />
+      <ActivityGames active={activeNav === 'games'} customGames={customActivities} reminders={gameReminders} onRemindersChange={setGameReminders} stats={activityGameStats} onCustomGamesChange={setCustomActivities} onComplete={recordActivityGame} onEvent={recordCloudEvent} onCountdownSound={handleGameCountdownSound} />
 
       <section hidden={activeNav !== 'trophy' && activeNav !== 'info'} className="bottom-grid single-panel">
         <div hidden={activeNav !== 'trophy'} className="reward-card">
@@ -637,7 +649,7 @@ function App() {
         <button hidden={activeNav !== 'info'} type="button" className="water-info-card" onClick={() => changePage('water')}><span className="water-info-visual"><Droplets size={32} /><span>💧</span></span><span className="section-kicker">توتي يفكّرك بلطف</span><strong>ركن شرب الماء</strong><span className="water-info-description">علّمي أكوابك، راقبي أسبوعك، واختاري تذكيرًا صوتيًا يناسبك.</span><span className="water-info-link">افتحي سجل الماء <ChevronLeft size={16} /></span></button>
       </section>
 
-      <WaterTrackerPage active={activeNav === 'water'} data={waterData} onChange={setWaterData} onBack={() => changePage('info', true)} />
+      <WaterTrackerPage active={activeNav === 'water'} data={waterData} onChange={(next) => { setWaterData(next); recordCloudEvent('water_data_changed', { dailyGoal: next.dailyGoal, cupsByDate: next.cupsByDate, weightByDate: next.weightByDate }); }} onBack={() => changePage('info', true)} />
 
       {activeNav === 'info' && <section className={`neon-sync-card neon-sync-${cloudSyncStatus}`} aria-live="polite"><span className="neon-sync-icon">{cloudSyncStatus === 'local' ? <CloudOff size={21} /> : <Cloud size={21} />}</span><div className="neon-sync-copy"><b>حفظ سحابي آمن · Neon</b><p>{cloudSyncMessage}</p></div><button type="button" disabled={!neonSyncApiUrl || !syncIdentity || cloudSyncStatus === 'syncing'} onClick={() => setCloudSyncRetry((attempt) => attempt + 1)}><RefreshCw size={15} />{neonSyncApiUrl ? 'مزامنة الآن' : 'غير مفعّلة'}</button></section>}
 

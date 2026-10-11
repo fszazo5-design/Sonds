@@ -63,10 +63,11 @@ type Props = {
   stats: ActivityGameStats;
   onCustomGamesChange: (games: CustomActivity[]) => void;
   onComplete: (reps: number) => void;
+  onEvent?: (eventName: string, payload?: Record<string, unknown>) => void;
   onCountdownSound?: () => void;
 };
 
-export default function ActivityGames({ active, customGames, reminders, onRemindersChange, stats, onCustomGamesChange, onComplete, onCountdownSound }: Props) {
+export default function ActivityGames({ active, customGames, reminders, onRemindersChange, stats, onCustomGamesChange, onComplete, onEvent, onCountdownSound }: Props) {
   const games: ActivityGame[] = [
     ...starterGames.map((game) => ({ ...game, art: illustrations[game.id] })),
     ...customGames.map((game, index) => ({ ...game, level: 'لعبتك', color: ['rose', 'mint', 'peach', 'lilac', 'sky'][index % 5], icon: '✨' })),
@@ -94,7 +95,8 @@ export default function ActivityGames({ active, customGames, reminders, onRemind
     setRunning(false);
     setCompleteNotice(`انتهت الجولة! أحسنتِ، سجلتِ ${fmt(reps)} ${selected?.unit ?? 'تكرار'}.`);
     onComplete(reps);
-  }, [running, secondsLeft, reps, onComplete, selected?.unit]);
+    onEvent?.('activity_game_completed', { gameId: selected?.id ?? 'unknown', gameTitle: selected?.title ?? 'لعبة', reps, durationSeconds: selected?.duration ?? 0 });
+  }, [onComplete, onEvent, reps, running, secondsLeft, selected?.duration, selected?.id, selected?.title, selected?.unit]);
 
   useEffect(() => {
     if (!running || secondsLeft !== 0 || !selected) return;
@@ -159,6 +161,7 @@ export default function ActivityGames({ active, customGames, reminders, onRemind
       image: imagePreview || undefined,
     };
     onCustomGamesChange([...customGames, item]);
+    onEvent?.('custom_game_created', { gameId: item.id, title: item.title, duration: item.duration, hasImage: Boolean(item.image) });
     setShowAddForm(false);
     setForm({ title: '', description: '', instruction: '', mode: 'reps', duration: '30', unit: 'تكرار' });
     setImagePreview('');
@@ -194,7 +197,7 @@ export default function ActivityGames({ active, customGames, reminders, onRemind
             <div className="activity-game-copy"><h4>{game.title}</h4><p>{game.description}</p><div className="game-meta"><span><Clock3 size={13} /> {fmt(game.duration)} ث</span><span>{game.mode === 'hold' ? 'ثبات' : 'عدّاد'}</span></div>
               {(() => {
                 const reminder = reminders[game.id] ?? { enabled: false, time: '18:00' };
-                return <div className="game-reminder-row"><label className="game-reminder-toggle"><input type="checkbox" checked={reminder.enabled} onChange={(event) => onRemindersChange({ ...reminders, [game.id]: { ...reminder, enabled: event.target.checked } })} /><Bell size={14} /><span>تنبيه يومي</span></label><input className="game-reminder-time" type="time" aria-label={`موعد التنبيه اليومي للعبة ${game.title}`} value={reminder.time} disabled={!reminder.enabled} onChange={(event) => onRemindersChange({ ...reminders, [game.id]: { ...reminder, time: event.target.value } })} /></div>;
+                return <div className="game-reminder-row"><label className="game-reminder-toggle"><input type="checkbox" checked={reminder.enabled} onChange={(event) => { onRemindersChange({ ...reminders, [game.id]: { ...reminder, enabled: event.target.checked } }); onEvent?.('game_reminder_changed', { gameId: game.id, enabled: event.target.checked, time: reminder.time }); }} /><Bell size={14} /><span>تنبيه يومي</span></label><input className="game-reminder-time" type="time" aria-label={`موعد التنبيه اليومي للعبة ${game.title}`} value={reminder.time} disabled={!reminder.enabled} onChange={(event) => { onRemindersChange({ ...reminders, [game.id]: { ...reminder, time: event.target.value } }); onEvent?.('game_reminder_changed', { gameId: game.id, enabled: reminder.enabled, time: event.target.value }); }} /></div>;
               })()}
               <button type="button" className="game-play-button" onClick={() => openGame(game)}><Play size={15} fill="currentColor" /> ابدئي اللعب</button>
             </div>

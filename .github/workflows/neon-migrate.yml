@@ -32,10 +32,13 @@ jobs:
             exit 1
           fi
 
-      - name: Apply idempotent schema migration
+      - name: Apply all idempotent schema migrations
         env:
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
         shell: bash
         run: |
           set -euo pipefail
-          psql "$NEON_DATABASE_URL" --set ON_ERROR_STOP=1 --file=backend/migrations/001_create_device_sync.sql
+          for migration in backend/migrations/*.sql; do
+            echo "Applying $migration"
+            psql "$NEON_DATABASE_URL" --set ON_ERROR_STOP=1 --file="$migration"
+          done

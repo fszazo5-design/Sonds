@@ -65,8 +65,9 @@ function stripLocalOnlyFields(plan: Record<string, unknown>): Record<string, unk
 async function sendAction<T>(
   apiUrl: string,
   identity: LocalSyncIdentity,
-  action: 'pull' | 'push',
+  action: 'pull' | 'push' | 'event',
   plan?: Record<string, unknown>,
+  extra: Record<string, unknown> = {},
 ): Promise<T> {
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(() => controller.abort(), 12_000);
@@ -82,6 +83,7 @@ async function sendAction<T>(
         deviceId: identity.deviceId,
         deviceSecret: identity.deviceSecret,
         ...(action === 'push' ? { state: stripLocalOnlyFields(plan ?? {}) } : {}),
+        ...extra,
       }),
       signal: controller.signal,
     });
@@ -102,4 +104,18 @@ export function pushNeonSnapshot(
   plan: Record<string, unknown>,
 ): Promise<{ version: number; ok: boolean; updatedAt: string }> {
   return sendAction(apiUrl, identity, 'push', plan);
+}
+
+export function pushNeonEvent(
+  apiUrl: string,
+  identity: LocalSyncIdentity,
+  eventName: string,
+  payload: Record<string, unknown> = {},
+): Promise<{ version: number; ok: boolean }> {
+  return sendAction(apiUrl, identity, 'event', undefined, {
+    eventId: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    eventName,
+    payload,
+    occurredAt: new Date().toISOString(),
+  });
 }
