@@ -214,10 +214,15 @@ class MainActivity : Activity() {
 
     inner class AppBridge {
         @JavascriptInterface
-        fun playGameCountdownSound() = runOnUiThread {
+        fun playGameCountdownSound() = playGameSound(0.72f)
+
+        @JavascriptInterface
+        fun playGameEndSound() = playGameSound(1.0f)
+
+        private fun playGameSound(volume: Float) = runOnUiThread {
             countdownPlayer?.release()
             countdownPlayer = MediaPlayer.create(this@MainActivity, R.raw.game_countdown_laufey)?.apply {
-                setVolume(0.72f, 0.72f)
+                setVolume(volume, volume)
                 setOnCompletionListener {
                     if (countdownPlayer === this) countdownPlayer = null
                     release()
@@ -225,9 +230,6 @@ class MainActivity : Activity() {
                 start()
             }
         }
-
-        @JavascriptInterface
-        fun playGameEndSound() = playGameCountdownSound()
 
         @JavascriptInterface
         fun loadState(): String = database.loadState().orEmpty()

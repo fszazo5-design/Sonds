@@ -5,6 +5,7 @@ import plankArt from '../assets/game-plank.webp';
 import squatsArt from '../assets/game-squats.webp';
 import danceArt from '../assets/game-dance.webp';
 import stretchArt from '../assets/game-stretch.webp';
+import gameEndSound from '../assets/game-countdown-laufey.mp3';
 
 export type CustomActivity = {
   id: string;
@@ -101,22 +102,9 @@ export default function ActivityGames({ active, customGames, reminders, onRemind
       if (window.AndroidBridge?.playGameEndSound) {
         window.AndroidBridge.playGameEndSound();
       } else {
-        const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-        if (AudioContextClass) {
-          const context = new AudioContextClass();
-          const oscillator = context.createOscillator();
-          const gain = context.createGain();
-          oscillator.type = 'sine';
-          oscillator.frequency.setValueAtTime(660, context.currentTime);
-          oscillator.frequency.setValueAtTime(880, context.currentTime + 0.16);
-          gain.gain.setValueAtTime(0.0001, context.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.2, context.currentTime + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.42);
-          oscillator.connect(gain).connect(context.destination);
-          oscillator.start();
-          oscillator.stop(context.currentTime + 0.45);
-          oscillator.addEventListener('ended', () => { void context.close(); }, { once: true });
-        }
+        const audio = new Audio(gameEndSound);
+        audio.volume = 1;
+        void audio.play();
       }
     } catch {
       // تظهر الرسالة داخل صفحة اللعب حتى لو منع المتصفح تشغيل الصوت.
