@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 import {
   Activity,
@@ -10,6 +10,8 @@ import {
   Check,
   ChevronLeft,
   Camera,
+  Cloud,
+  CloudOff,
   Clock,
   Download,
   Droplets,
@@ -23,6 +25,7 @@ import {
   Music2,
   Pencil,
   Plus,
+  RefreshCw,
   Save,
   Sparkles,
   Star,
@@ -38,6 +41,7 @@ import {
 import ActivityGames, { type ActivityGameStats, type CustomActivity, type GameReminderSettings } from './components/ActivityGames';
 import WaterTrackerPage, { type WaterTrackingData } from './components/WaterTrackerPage';
 import { chooseMealMessage, getMealMessageCategory } from './components/mealMessages';
+import { ensureLocalSyncIdentity, getNeonSyncApiUrl, pullNeonSnapshot, pushNeonSnapshot, type LocalSyncIdentity } from './lib/neonSync';
 import favoriteSongVideo from './assets/favorite-song-with-sundus.mp4';
 import startupVideo from './assets/startup-video.mp4';
 import startupIntroPoster from './assets/startup-intro-poster.jpg';
@@ -70,7 +74,8 @@ type Reward = {
   unlocked: boolean;
 };
 
-type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; gameReminders?: GameReminderSettings; water?: WaterTrackingData; mealMessages?: Record<string, string>; achievementVersion?: number };
+type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; gameReminders?: GameReminderSettings; water?: WaterTrackingData; mealMessages?: Record<string, string>; cloudSync?: LocalSyncIdentity | null; modifiedAt?: number; achievementVersion?: number };
+type CloudSyncStatus = 'local' | 'pending' | 'syncing' | 'synced' | 'error';
 
 const defaultMeals: Meal[] = [
   {
@@ -143,6 +148,7 @@ const navigation: Array<{ Icon: ComponentType<LucideProps>; id: string; label: s
   { Icon: Info, id: 'info', label: 'معلومات' },
 ];
 const isKnownPage = (page: string): boolean => page === 'water' || navigation.some((item) => item.id === page);
+const neonSyncApiUrl = getNeonSyncApiUrl();
 
 const ACHIEVEMENT_SYSTEM_VERSION = 2;
 const readSavedPlan = (): PersistedPlan => {
@@ -164,6 +170,12 @@ const readSavedPlan = (): PersistedPlan => {
 function App() {
   const today = getToday();
   const [bootData] = useState(readSavedPlan);
+  const [syncIdentity] = useState(() => ensureLocalSyncIdentity(bootData.cloudSync));
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>(neonSyncApiUrl ? 'pending' : 'local');
+  const [cloudSyncRetry, setCloudSyncRetry] = useState(0);
+  const localModifiedAtRef = useRef(bootData.modifiedAt ?? 0);
+  const cloudSyncReadyRef = useRef(!neonSyncApiUrl);
+  const cloudSyncBootstrapStartedRef = useRef(false);
   const isCurrentAchievementSystem = bootData.achievementVersion === ACHIEVEMENT_SYSTEM_VERSION;
   const [meals, setMeals] = useState<Meal[]>(bootData.meals ?? defaultMeals);
   const [mealEditor, setMealEditor] = useState<{ mealId: string | null; draft: MealDraft } | null>(null);
@@ -193,6 +205,30 @@ function App() {
     remindersEnabled: bootData.water?.remindersEnabled ?? true,
     reminderTimes: Array.isArray(bootData.water?.reminderTimes) ? bootData.water.reminderTimes : ['10:00', '13:00', '16:00', '19:00'],
   }));
+  const applyRemotePlan = useCallback((remote: Record<string, unknown>): void => {
+    const saved = remote as unknown as PersistedPlan;
+    if (Array.isArray(saved.meals) && saved.meals.length) setMeals(saved.meals);
+    if (saved.achievementVersion === ACHIEVEMENT_SYSTEM_VERSION) {
+      setRewards(Array.isArray(saved.rewards) ? saved.rewards : []);
+      setChecked(saved.day?.date === today ? (saved.day.checked ?? {}) : {});
+      setStreak(saved.day?.date === today ? (saved.day.streak ?? 0) : 0);
+    }
+    if (saved.activityGames) setActivityGameStats(saved.activityGames);
+    else if (saved.jumpRope) setActivityGameStats({ sessions: saved.jumpRope.sessions, totalReps: saved.jumpRope.totalJumps, bestReps: saved.jumpRope.bestJumps });
+    if (Array.isArray(saved.customActivities)) setCustomActivities(saved.customActivities);
+    if (saved.gameReminders && typeof saved.gameReminders === 'object') setGameReminders(saved.gameReminders);
+    if (saved.mealMessages && typeof saved.mealMessages === 'object' && !Array.isArray(saved.mealMessages)) setMealMessages(saved.mealMessages);
+    if (saved.water && typeof saved.water === 'object') {
+      const goal = Number(saved.water.dailyGoal);
+      setWaterData({
+        dailyGoal: Number.isFinite(goal) ? Math.min(16, Math.max(4, Math.round(goal))) : 8,
+        cupsByDate: saved.water.cupsByDate && typeof saved.water.cupsByDate === 'object' ? saved.water.cupsByDate : {},
+        weightByDate: saved.water.weightByDate && typeof saved.water.weightByDate === 'object' ? saved.water.weightByDate : {},
+        remindersEnabled: Boolean(saved.water.remindersEnabled),
+        reminderTimes: Array.isArray(saved.water.reminderTimes) ? saved.water.reminderTimes.filter((time) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time)) : [],
+      });
+    }
+  }, [today]);
   const changePage = (page: string, replace = false): void => {
     if (page === activeNav) return;
     setActiveNav(page);
@@ -271,26 +307,81 @@ function App() {
   const allComplete = completedCount === meals.length;
   const nextMeal = meals.find((meal) => !checked[meal.id]);
 
+  const currentPlan = useMemo<PersistedPlan>(() => ({
+    day: { date: today, checked, completedMeals: meals.filter((meal) => checked[meal.id]).map((meal) => meal.id), score, streak },
+    rewards,
+    meals,
+    jumpRope: bootData.jumpRope,
+    activityGames: activityGameStats,
+    customActivities,
+    gameReminders,
+    water: waterData,
+    mealMessages,
+    cloudSync: syncIdentity,
+    achievementVersion: ACHIEVEMENT_SYSTEM_VERSION,
+  }), [today, checked, meals, score, streak, rewards, bootData.jumpRope, activityGameStats, customActivities, gameReminders, waterData, mealMessages, syncIdentity]);
+  const currentPlanRef = useRef(currentPlan);
+  currentPlanRef.current = currentPlan;
+  const lastSavedPlanJsonRef = useRef(JSON.stringify(currentPlan));
+
   useEffect(() => {
-    const payload = {
-      day: { date: today, checked, completedMeals: meals.filter((meal) => checked[meal.id]).map((meal) => meal.id), score, streak },
-      rewards,
-      meals,
-      jumpRope: bootData.jumpRope,
-      activityGames: activityGameStats,
-      customActivities,
-      gameReminders,
-      water: waterData,
-      mealMessages,
-      achievementVersion: ACHIEVEMENT_SYSTEM_VERSION,
-    };
+    const planJson = JSON.stringify(currentPlan);
+    if (planJson !== lastSavedPlanJsonRef.current) {
+      lastSavedPlanJsonRef.current = planJson;
+      localModifiedAtRef.current = Date.now();
+    }
+    const payload = { ...currentPlan, modifiedAt: localModifiedAtRef.current };
     try {
       localStorage.setItem('sondos-totti-plan', JSON.stringify(payload));
     } catch {
       // SQLite through the Android bridge remains the durable source on file-based WebView origins.
     }
     window.AndroidBridge?.saveState(JSON.stringify(payload));
-  }, [checked, meals, rewards, activityGameStats, customActivities, gameReminders, bootData.jumpRope, waterData, mealMessages, score, streak, today]);
+  }, [currentPlan]);
+
+  useEffect(() => {
+    if (!neonSyncApiUrl) {
+      cloudSyncReadyRef.current = true;
+      setCloudSyncStatus('local');
+      return;
+    }
+    if (!syncIdentity) {
+      cloudSyncReadyRef.current = true;
+      setCloudSyncStatus('error');
+      return;
+    }
+
+    if (!cloudSyncReadyRef.current) {
+      if (cloudSyncBootstrapStartedRef.current) return;
+      cloudSyncBootstrapStartedRef.current = true;
+      setCloudSyncStatus('syncing');
+      void (async () => {
+        try {
+          const remote = await pullNeonSnapshot(neonSyncApiUrl, syncIdentity);
+          const cloudModifiedAt = remote.updatedAt ? Date.parse(remote.updatedAt) || 0 : 0;
+          if (remote.state && cloudModifiedAt > localModifiedAtRef.current) {
+            applyRemotePlan(remote.state);
+          } else {
+            await pushNeonSnapshot(neonSyncApiUrl, syncIdentity, currentPlanRef.current);
+          }
+          cloudSyncReadyRef.current = true;
+          setCloudSyncStatus('synced');
+        } catch {
+          cloudSyncReadyRef.current = true;
+          setCloudSyncStatus('error');
+        }
+      })();
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setCloudSyncStatus('syncing');
+      void pushNeonSnapshot(neonSyncApiUrl, syncIdentity, currentPlanRef.current)
+        .then(() => setCloudSyncStatus('synced'))
+        .catch(() => setCloudSyncStatus('error'));
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [currentPlan, cloudSyncRetry, applyRemotePlan, syncIdentity]);
 
   useEffect(() => {
     const waterReminders = waterData.remindersEnabled
@@ -396,6 +487,16 @@ function App() {
     setRewardTitle('');
     setShowRewardForm(false);
   };
+
+  const cloudSyncMessage = cloudSyncStatus === 'local'
+    ? 'عنوان خادم المزامنة لم يُضف بعد؛ بياناتك محفوظة على هذا الجهاز.'
+    : cloudSyncStatus === 'pending'
+      ? 'جارٍ تجهيز الاتصال الآمن بالخادم.'
+      : cloudSyncStatus === 'syncing'
+        ? 'جارٍ جلب أحدث نسخة وحفظ التغييرات.'
+        : cloudSyncStatus === 'synced'
+          ? 'تمت مزامنة خطتك بنجاح مع Neon.'
+          : 'تعذرت المزامنة الآن؛ بياناتك المحلية ما زالت محفوظة، ويمكنك المحاولة مجددًا.';
 
   return (
     <main dir="rtl" className="app-shell">
@@ -513,7 +614,9 @@ function App() {
 
       <WaterTrackerPage active={activeNav === 'water'} data={waterData} onChange={setWaterData} onBack={() => changePage('info', true)} />
 
-      {activeNav === 'info' && <section className="info-actions-card"><span className="section-kicker">حول التطبيق</span><h2>سندس دي أنا</h2><p>خطتك الغذائية ومواعيد الوجبات محفوظة على هذا الجهاز. يمكنك إدارة التنبيهات والأذونات من هنا.</p><button type="button" onClick={() => setShowPermissionSettings(true)}><ShieldCheck size={18} /> إعدادات الجهاز والتنبيهات</button></section>}
+      {activeNav === 'info' && <section className={`neon-sync-card neon-sync-${cloudSyncStatus}`} aria-live="polite"><span className="neon-sync-icon">{cloudSyncStatus === 'local' ? <CloudOff size={21} /> : <Cloud size={21} />}</span><div className="neon-sync-copy"><b>حفظ سحابي آمن · Neon</b><p>{cloudSyncMessage}</p></div><button type="button" disabled={!neonSyncApiUrl || !syncIdentity || cloudSyncStatus === 'syncing'} onClick={() => setCloudSyncRetry((attempt) => attempt + 1)}><RefreshCw size={15} />{neonSyncApiUrl ? 'مزامنة الآن' : 'غير مفعّلة'}</button></section>}
+
+      {activeNav === 'info' && <section className="info-actions-card"><span className="section-kicker">حول التطبيق</span><h2>سندس دي أنا</h2><p>خطتك الغذائية ومواعيد الوجبات محفوظة على هذا الجهاز، وتُزامَن مع Neon عند إعداد الخادم. يمكنك إدارة التنبيهات والأذونات من هنا.</p><button type="button" onClick={() => setShowPermissionSettings(true)}><ShieldCheck size={18} /> إعدادات الجهاز والتنبيهات</button></section>}
 
       <footer hidden={activeNav !== 'home'}><span>صُنع بحب لسندس</span><span>تذكري: كل خطوة صغيرة انتصار كبير <Heart size={14} fill="currentColor" /></span></footer>
 

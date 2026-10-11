@@ -151,7 +151,7 @@ export default function WaterTrackerPage({ active, data, onChange, onBack }: Wat
             <div className="water-side-heading"><span className="water-body-icon"><Activity size={20} /></span><div><span className="section-kicker">اختياري تمامًا</span><h3>متابعة الجسم</h3></div></div>
             <p>لو حبيتي، سجّلي قراءة الوزن لهذا اليوم لتتبعي تغيّرها بمرور الوقت. اتركيها فارغة إذا مش محتاجة.</p>
             <label className="water-weight-field"><span><Scale size={16} /> الوزن</span><span className="water-weight-input-wrap"><input type="number" min="1" max="500" step="0.1" inputMode="decimal" value={selectedWeight ?? ''} placeholder="—" aria-label="الوزن بالكيلوغرام" onChange={(event) => { const value = event.target.value; const next = { ...data.weightByDate }; if (!value) delete next[selectedDay]; else { const parsed = Number(value); if (Number.isFinite(parsed) && parsed > 0 && parsed <= 500) next[selectedDay] = parsed; } update({ weightByDate: next }); }} /><small>كجم</small></span></label>
-            <div className="water-privacy-note"><Heart size={14} /> سجل الجسم يبقى على الجهاز ولا يدخل في المزامنة السحابية.</div>
+            <div className="water-privacy-note"><Heart size={14} /> سجل الجسم محفوظ محليًا، ويُزامَن مع خطتك عند إعداد الخادم السحابي.</div>
           </section>
 
           <section className="water-health-card"><span className="water-health-illustration"><HeartPulse size={25} /><Droplets size={19} /></span><div><span className="section-kicker">عناية متوازنة</span><h3>استمعي لجسمك</h3><p>اشربي على مهل وحسب احتياجك. الهدف تذكير لطيف، وليس قاعدة طبية تناسب الجميع.</p></div></section>
@@ -164,7 +164,7 @@ export default function WaterTrackerPage({ active, data, onChange, onBack }: Wat
             {data.remindersEnabled && data.reminderTimes.length === 0 && <p className="water-reminder-warning" role="status">اختاري موعدًا واحدًا على الأقل لتفعيل التذكير.</p>}
           </section>
 
-            <div className="water-disclaimer"><Droplets size={16} /><span>الأكواب المسجلة والسجل الأسبوعي محفوظان محليًا ضمن بيانات خطتك.</span></div>
+          <div className="water-disclaimer"><Droplets size={16} /><span>الأكواب والسجل الأسبوعي محفوظان محليًا، وتُزامَن نسختهما عند إعداد الخادم.</span></div>
         </aside>
       </div>
     </section>

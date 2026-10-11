@@ -26,6 +26,8 @@ jobs:
           cache: npm
 
       - name: Build the UI with relative asset paths
+        env:
+          VITE_NEON_API_URL: ${{ vars.VITE_NEON_API_URL }}
         run: |
           npm ci
           npm run build
