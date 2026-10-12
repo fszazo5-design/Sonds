@@ -73,7 +73,7 @@ type Reward = {
 };
 
 type AdhkarProgress = { morning: string[]; evening: string[] };
-type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; gameReminders?: GameReminderSettings; water?: WaterTrackingData; adhkarSettings?: AdhkarSettings; adhkarProgress?: AdhkarProgress; mealMessages?: Record<string, string>; cloudSync?: LocalSyncIdentity | null; modifiedAt?: number; achievementVersion?: number };
+type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; deletedGameIds?: string[]; gameReminders?: GameReminderSettings; water?: WaterTrackingData; adhkarSettings?: AdhkarSettings; adhkarProgress?: AdhkarProgress; mealMessages?: Record<string, string>; cloudSync?: LocalSyncIdentity | null; modifiedAt?: number; achievementVersion?: number };
 type CloudSyncStatus = 'local' | 'pending' | 'syncing' | 'synced' | 'error';
 
 const defaultMeals: Meal[] = [
@@ -217,6 +217,7 @@ function App() {
   const [activeNav, setActiveNav] = useState('home');
   const [activityGameStats, setActivityGameStats] = useState<ActivityGameStats>(() => bootData.activityGames ?? { sessions: bootData.jumpRope?.sessions ?? 0, totalReps: bootData.jumpRope?.totalJumps ?? 0, bestReps: bootData.jumpRope?.bestJumps ?? 0 });
   const [customActivities, setCustomActivities] = useState<CustomActivity[]>(() => bootData.customActivities ?? []);
+  const [deletedGameIds, setDeletedGameIds] = useState<string[]>(() => Array.isArray(bootData.deletedGameIds) ? bootData.deletedGameIds : []);
   const [gameReminders, setGameReminders] = useState<GameReminderSettings>(() => bootData.gameReminders ?? {});
   const [mealMessages, setMealMessages] = useState<Record<string, string>>(() => bootData.mealMessages ?? {});
   const [adhkarSettings, setAdhkarSettings] = useState<AdhkarSettings>(() => bootData.adhkarSettings ?? { morningEnabled: true, morningTime: '07:00', eveningEnabled: true, eveningTime: '19:00' });
@@ -246,6 +247,7 @@ function App() {
     if (saved.activityGames) setActivityGameStats(saved.activityGames);
     else if (saved.jumpRope) setActivityGameStats({ sessions: saved.jumpRope.sessions, totalReps: saved.jumpRope.totalJumps, bestReps: saved.jumpRope.bestJumps });
     if (Array.isArray(saved.customActivities)) setCustomActivities(saved.customActivities);
+    if (Array.isArray(saved.deletedGameIds)) setDeletedGameIds(saved.deletedGameIds.filter((id): id is string => typeof id === 'string'));
     if (saved.gameReminders && typeof saved.gameReminders === 'object') setGameReminders(saved.gameReminders);
     if (saved.mealMessages && typeof saved.mealMessages === 'object' && !Array.isArray(saved.mealMessages)) setMealMessages(saved.mealMessages);
     if (saved.adhkarSettings) setAdhkarSettings(saved.adhkarSettings);
@@ -347,6 +349,7 @@ function App() {
     jumpRope: bootData.jumpRope,
     activityGames: activityGameStats,
     customActivities,
+    deletedGameIds,
     gameReminders,
     water: waterData,
     adhkarSettings,
@@ -354,7 +357,7 @@ function App() {
     mealMessages,
     cloudSync: syncIdentity,
     achievementVersion: ACHIEVEMENT_SYSTEM_VERSION,
-  }), [today, checked, meals, score, streak, rewards, bootData.jumpRope, activityGameStats, customActivities, gameReminders, waterData, adhkarSettings, adhkarProgress, mealMessages, syncIdentity]);
+  }), [today, checked, meals, score, streak, rewards, bootData.jumpRope, activityGameStats, customActivities, deletedGameIds, gameReminders, waterData, adhkarSettings, adhkarProgress, mealMessages, syncIdentity]);
   const currentPlanRef = useRef(currentPlan);
   currentPlanRef.current = currentPlan;
   const lastSavedPlanJsonRef = useRef(JSON.stringify(currentPlan));
@@ -644,7 +647,7 @@ function App() {
         {mealSaveNotice && <p className="meal-save-notice" role="status" aria-live="polite">{mealSaveNotice}</p>}
       </section>
 
-      <ActivityGames active={activeNav === 'games'} customGames={customActivities} reminders={gameReminders} onRemindersChange={setGameReminders} stats={activityGameStats} onCustomGamesChange={setCustomActivities} onComplete={recordActivityGame} onEvent={recordCloudEvent} onCountdownSound={handleGameCountdownSound} />
+      <ActivityGames active={activeNav === 'games'} customGames={customActivities} deletedGameIds={deletedGameIds} reminders={gameReminders} onRemindersChange={setGameReminders} stats={activityGameStats} onCustomGamesChange={setCustomActivities} onDeletedGamesChange={setDeletedGameIds} onComplete={recordActivityGame} onEvent={recordCloudEvent} onCountdownSound={handleGameCountdownSound} />
 
       <section hidden={activeNav !== 'trophy' && activeNav !== 'menu'} className="bottom-grid single-panel">
         <div hidden={activeNav !== 'trophy'} className="reward-card">

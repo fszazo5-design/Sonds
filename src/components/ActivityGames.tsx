@@ -58,20 +58,23 @@ const clock = (n: number) => `${String(Math.floor(n / 60)).padStart(2, '0')}:${S
 type Props = {
   active: boolean;
   customGames: CustomActivity[];
+  deletedGameIds: string[];
   reminders: GameReminderSettings;
   onRemindersChange: (reminders: GameReminderSettings) => void;
   stats: ActivityGameStats;
   onCustomGamesChange: (games: CustomActivity[]) => void;
+  onDeletedGamesChange: (ids: string[]) => void;
   onComplete: (reps: number) => void;
   onEvent?: (eventName: string, payload?: Record<string, unknown>) => void;
   onCountdownSound?: () => void;
 };
 
-export default function ActivityGames({ active, customGames, reminders, onRemindersChange, stats, onCustomGamesChange, onComplete, onEvent, onCountdownSound }: Props) {
+export default function ActivityGames({ active, customGames, deletedGameIds, reminders, onRemindersChange, stats, onCustomGamesChange, onDeletedGamesChange, onComplete, onEvent, onCountdownSound }: Props) {
   const games: ActivityGame[] = [
     ...starterGames.map((game) => ({ ...game, art: illustrations[game.id] })),
     ...customGames.map((game, index) => ({ ...game, level: 'لعبتك', color: ['rose', 'mint', 'peach', 'lilac', 'sky'][index % 5], icon: '✨' })),
   ];
+  const visibleGames = games.filter((game) => !deletedGameIds.includes(game.id));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', instruction: '', mode: 'reps' as 'reps' | 'hold', duration: '30', unit: 'تكرار' });
@@ -167,10 +170,13 @@ export default function ActivityGames({ active, customGames, reminders, onRemind
     setImagePreview('');
     setFormError('');
   };
-  const deleteCustomGame = (game: ActivityGame) => {
-    if (!game.id.startsWith('custom-game-')) return;
-    onCustomGamesChange(customGames.filter((item) => item.id !== game.id));
-    onEvent?.('custom_game_deleted', { gameId: game.id, title: game.title });
+  const deleteGame = (game: ActivityGame) => {
+    if (game.id.startsWith('custom-game-')) {
+      onCustomGamesChange(customGames.filter((item) => item.id !== game.id));
+    } else {
+      onDeletedGamesChange([...new Set([...deletedGameIds, game.id])]);
+    }
+    onEvent?.('game_deleted', { gameId: game.id, title: game.title, custom: game.id.startsWith('custom-game-') });
     if (selectedId === game.id) setSelectedId(null);
   };
   const chooseImage = (file: File | undefined) => {
@@ -192,9 +198,9 @@ export default function ActivityGames({ active, customGames, reminders, onRemind
 
       <div className="games-summary"><div><Trophy size={20} /><strong>{fmt(stats.sessions)}</strong><span>جولات مكتملة</span></div><div><Flame size={20} /><strong>{fmt(stats.totalReps)}</strong><span>حركات مسجّلة</span></div><div><Star size={20} /><strong>{fmt(stats.bestReps)}</strong><span>أفضل جولة</span></div></div>
 
-      <div className="games-section-heading"><div><span className="section-kicker">اختاري ما يناسبك</span><h3>ألعاب الحركة</h3></div><span className="games-count">{fmt(games.length)} ألعاب</span></div>
+      <div className="games-section-heading"><div><span className="section-kicker">اختاري ما يناسبك</span><h3>ألعاب الحركة</h3></div><span className="games-count">{fmt(visibleGames.length)} ألعاب</span></div>
       <div className="games-grid">
-        {games.map((game) => (
+        {visibleGames.map((game) => (
           <article className={`activity-game-card game-${game.color}`} key={game.id}>
             <button className="activity-game-art" type="button" onClick={() => openGame(game)} aria-label={`ابدئي ${game.title}`}>
               {game.art || game.image ? <img src={game.art ?? game.image} alt={`رسمة ${game.title}`} /> : <span className="custom-game-art">{game.icon}</span>}
@@ -205,7 +211,7 @@ export default function ActivityGames({ active, customGames, reminders, onRemind
                 const reminder = reminders[game.id] ?? { enabled: false, time: '18:00' };
                 return <div className="game-reminder-row"><label className="game-reminder-toggle"><input type="checkbox" checked={reminder.enabled} onChange={(event) => { onRemindersChange({ ...reminders, [game.id]: { ...reminder, enabled: event.target.checked } }); onEvent?.('game_reminder_changed', { gameId: game.id, enabled: event.target.checked, time: reminder.time }); }} /><Bell size={14} /><span>تنبيه يومي</span></label><input className="game-reminder-time" type="time" aria-label={`موعد التنبيه اليومي للعبة ${game.title}`} value={reminder.time} disabled={!reminder.enabled} onChange={(event) => { onRemindersChange({ ...reminders, [game.id]: { ...reminder, time: event.target.value } }); onEvent?.('game_reminder_changed', { gameId: game.id, enabled: reminder.enabled, time: event.target.value }); }} /></div>;
               })()}
-              <div className="game-card-actions"><button type="button" className="game-play-button" onClick={() => openGame(game)}><Play size={15} fill="currentColor" /> ابدئي اللعب</button>{game.id.startsWith('custom-game-') && <button type="button" className="game-delete-button" onClick={() => deleteCustomGame(game)} aria-label={`حذف ${game.title}`} title="حذف اللعبة"><Trash2 size={15} /></button>}</div>
+              <div className="game-card-actions"><button type="button" className="game-play-button" onClick={() => openGame(game)}><Play size={15} fill="currentColor" /> ابدئي اللعب</button><button type="button" className="game-delete-button" onClick={() => deleteGame(game)} aria-label={`حذف ${game.title}`} title="حذف اللعبة"><Trash2 size={15} /></button></div>
             </div>
           </article>
         ))}
