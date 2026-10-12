@@ -22,6 +22,7 @@ import {
   Mic,
   Music2,
   Pencil,
+  Palette,
   Plus,
   RefreshCw,
   Save,
@@ -38,6 +39,8 @@ import {
 import ActivityGames, { type ActivityGameStats, type CustomActivity, type GameReminderSettings } from './components/ActivityGames';
 import WaterTrackerPage, { type WaterTrackingData } from './components/WaterTrackerPage';
 import AdhkarPage, { type AdhkarSettings } from './components/AdhkarPage';
+import PrivacyPage, { type PrivateCard } from './components/PrivacyPage';
+import ThemePage, { type ThemeSettings } from './components/ThemePage';
 import { chooseMealMessage, getMealMessageCategory } from './components/mealMessages';
 import { ensureLocalSyncIdentity, getNeonSyncApiUrl, pullNeonSnapshot, pushNeonEvent, pushNeonSnapshot, type LocalSyncIdentity } from './lib/neonSync';
 import favoriteSongVideo from './assets/favorite-song-with-sundus.mp4';
@@ -73,8 +76,7 @@ type Reward = {
 };
 
 type AdhkarProgress = { morning: string[]; evening: string[]; ruqyah: string[] };
-type ThemeSettings = { primary: string; secondary: string; surface: string; text: string };
-type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; deletedGameIds?: string[]; gameReminders?: GameReminderSettings; water?: WaterTrackingData; adhkarSettings?: AdhkarSettings; adhkarProgress?: AdhkarProgress; mealMessages?: Record<string, string>; theme?: ThemeSettings; cloudSync?: LocalSyncIdentity | null; modifiedAt?: number; achievementVersion?: number };
+type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; deletedGameIds?: string[]; gameReminders?: GameReminderSettings; water?: WaterTrackingData; adhkarSettings?: AdhkarSettings; adhkarProgress?: AdhkarProgress; mealMessages?: Record<string, string>; theme?: ThemeSettings; privateCards?: PrivateCard[]; cloudSync?: LocalSyncIdentity | null; modifiedAt?: number; achievementVersion?: number };
 type CloudSyncStatus = 'local' | 'pending' | 'syncing' | 'synced' | 'error';
 
 const defaultMeals: Meal[] = [
@@ -145,17 +147,11 @@ const navigation: Array<{ id: string; label: string }> = [
   { id: 'calendar', label: 'أوقاتي' },
   { id: 'menu', label: 'قائمة سندس' },
 ];
-const isKnownPage = (page: string): boolean => ['water', 'adhkar', 'games', 'trophy'].includes(page) || navigation.some((item) => item.id === page);
+const isKnownPage = (page: string): boolean => ['water', 'adhkar', 'games', 'trophy', 'privacy', 'colors'].includes(page) || navigation.some((item) => item.id === page);
 const neonSyncApiUrl = getNeonSyncApiUrl();
 
 const ACHIEVEMENT_SYSTEM_VERSION = 2;
-const defaultTheme: ThemeSettings = { primary: '#ff007f', secondary: '#00cfe8', surface: '#fff8fc', text: '#34223f' };
-const themePresets: Array<{ name: string; colors: ThemeSettings }> = [
-  { name: 'وردي سندس', colors: defaultTheme },
-  { name: 'بحر هادئ', colors: { primary: '#0077b6', secondary: '#00b4d8', surface: '#f0fbff', text: '#12304a' } },
-  { name: 'بنفسجي مرح', colors: { primary: '#7b2cbf', secondary: '#c77dff', surface: '#faf3ff', text: '#34213f' } },
-  { name: 'ليموني مبهج', colors: { primary: '#e07a00', secondary: '#61c554', surface: '#fffdf0', text: '#3d351c' } },
-];
+const defaultTheme: ThemeSettings = { primary: '#ff007f', secondary: '#00cfe8', surface: '#fff8fc', text: '#34223f', card: '#ffffff', success: '#00ce76', accent: '#ffea00' };
 const playCountdownSound = (): void => {
   if (window.AndroidBridge?.playGameCountdownSound) {
     window.AndroidBridge.playGameCountdownSound();
@@ -227,6 +223,7 @@ function App() {
   const [customActivities, setCustomActivities] = useState<CustomActivity[]>(() => bootData.customActivities ?? []);
   const [deletedGameIds, setDeletedGameIds] = useState<string[]>(() => Array.isArray(bootData.deletedGameIds) ? bootData.deletedGameIds : []);
   const [theme, setTheme] = useState<ThemeSettings>(() => ({ ...defaultTheme, ...(bootData.theme ?? {}) }));
+  const [privateCards, setPrivateCards] = useState<PrivateCard[]>(() => Array.isArray(bootData.privateCards) ? bootData.privateCards : []);
   const [gameReminders, setGameReminders] = useState<GameReminderSettings>(() => bootData.gameReminders ?? {});
   const [mealMessages, setMealMessages] = useState<Record<string, string>>(() => bootData.mealMessages ?? {});
   const [adhkarSettings, setAdhkarSettings] = useState<AdhkarSettings>(() => bootData.adhkarSettings ?? { morningEnabled: true, morningTime: '07:00', eveningEnabled: true, eveningTime: '19:00' });
@@ -245,6 +242,9 @@ function App() {
     root.style.setProperty('--sonds-secondary', theme.secondary);
     root.style.setProperty('--sonds-surface', theme.surface);
     root.style.setProperty('--sonds-text', theme.text);
+    root.style.setProperty('--sonds-card', theme.card);
+    root.style.setProperty('--sonds-success', theme.success);
+    root.style.setProperty('--sonds-accent', theme.accent);
   }, [theme]);
   const recordCloudEvent = useCallback((eventName: string, payload: Record<string, unknown> = {}): void => {
     if (!neonSyncApiUrl || !syncIdentity) return;
@@ -265,6 +265,7 @@ function App() {
     if (Array.isArray(saved.customActivities)) setCustomActivities(saved.customActivities);
     if (Array.isArray(saved.deletedGameIds)) setDeletedGameIds(saved.deletedGameIds.filter((id): id is string => typeof id === 'string'));
     if (saved.theme && typeof saved.theme === 'object') setTheme({ ...defaultTheme, ...saved.theme });
+    if (Array.isArray(saved.privateCards)) setPrivateCards(saved.privateCards);
     if (saved.gameReminders && typeof saved.gameReminders === 'object') setGameReminders(saved.gameReminders);
     if (saved.mealMessages && typeof saved.mealMessages === 'object' && !Array.isArray(saved.mealMessages)) setMealMessages(saved.mealMessages);
     if (saved.adhkarSettings) setAdhkarSettings(saved.adhkarSettings);
@@ -373,9 +374,10 @@ function App() {
     adhkarProgress,
     mealMessages,
     theme,
+    privateCards,
     cloudSync: syncIdentity,
     achievementVersion: ACHIEVEMENT_SYSTEM_VERSION,
-  }), [today, checked, meals, score, streak, rewards, bootData.jumpRope, activityGameStats, customActivities, deletedGameIds, gameReminders, waterData, adhkarSettings, adhkarProgress, mealMessages, theme, syncIdentity]);
+  }), [today, checked, meals, score, streak, rewards, bootData.jumpRope, activityGameStats, customActivities, deletedGameIds, gameReminders, waterData, adhkarSettings, adhkarProgress, mealMessages, theme, privateCards, syncIdentity]);
   const currentPlanRef = useRef(currentPlan);
   currentPlanRef.current = currentPlan;
   const lastSavedPlanJsonRef = useRef(JSON.stringify(currentPlan));
@@ -611,7 +613,7 @@ function App() {
         <div className="topbar-actions"><button className="icon-button" aria-label="طلب إذن الإشعارات" onClick={() => window.AndroidBridge?.requestNotificationPermission()}><Bell size={19} /><i /></button><button className="icon-button update-button" type="button" aria-label="تحديث الواجهة" title="تحديث الواجهة" onClick={() => window.AndroidBridge?.refreshWebApp()}><Download size={16} /></button><button className="icon-button" aria-label="إعدادات الأذونات" onClick={() => setShowPermissionSettings(true)}><ShieldCheck size={19} /></button><div className="profile-badge">س</div></div>
       </div>
 
-      {activeNav !== 'home' && <section className="page-heading"><div><span className="section-kicker">سندس دي أنا</span><h1>{activeNav === 'water' ? 'متابعة شرب الماء' : activeNav === 'adhkar' ? 'الأذكار' : navigation.find((item) => item.id === activeNav)?.label}</h1><p>{activeNav === 'calendar' ? 'عدّلي مواعيد وجباتك واحفظي أوقاتك اليومية.' : activeNav === 'trophy' ? 'تابعي تقدمك والجوائز التي حققتها.' : activeNav === 'games' ? 'اختاري لعبة حركة مرحة، أو أضيفي لعبتك الخاصة.' : activeNav === 'water' ? 'سجلّ لطيف لأكوابك وأيامك وتنبيهاتك.' : activeNav === 'adhkar' ? 'أذكار مكتوبة، قراءة صوتية، وتنبيهات الصباح والمساء.' : 'معلومات ونصائح وإعدادات التطبيق.'}</p></div></section>}
+      {activeNav !== 'home' && <section className="page-heading"><div><span className="section-kicker">سندس دي أنا</span><h1>{activeNav === 'water' ? 'متابعة شرب الماء' : activeNav === 'adhkar' ? 'الأذكار' : activeNav === 'privacy' ? 'خصوصية سندس' : activeNav === 'colors' ? 'ألوان تطبيقي' : navigation.find((item) => item.id === activeNav)?.label}</h1><p>{activeNav === 'calendar' ? 'عدّلي مواعيد وجباتك واحفظي أوقاتك اليومية.' : activeNav === 'trophy' ? 'تابعي تقدمك والجوائز التي حققتها.' : activeNav === 'games' ? 'اختاري لعبة حركة مرحة، أو أضيفي لعبتك الخاصة.' : activeNav === 'water' ? 'سجلّ لطيف لأكوابك وأيامك وتنبيهاتك.' : activeNav === 'adhkar' ? 'أذكار مكتوبة، قراءة صوتية، وتنبيهات الصباح والمساء.' : activeNav === 'privacy' ? 'مساحتك الخاصة لحفظ النصوص والصور والفيديوهات والصوتيات.' : activeNav === 'colors' ? 'اختاري ألوان التطبيق والبطاقات والتفاصيل كما تحبين.' : 'معلومات ونصائح وإعدادات التطبيق.'}</p></div></section>}
 
       <section hidden={activeNav !== 'home'} className="hero-card">
         <div className="hero-copy">
@@ -674,16 +676,18 @@ function App() {
           <div className="rewards-list">{rewards.length === 0 ? <div className="empty-rewards">صندوق الإنجازات فارغ الآن. ابدئي وجمّعي نقاطك!</div> : rewards.slice(0, 3).map((reward) => <div className={`reward-row ${reward.unlocked ? 'reward-unlocked' : ''}`} key={reward.id}><span className="reward-status">{reward.unlocked ? <Gift size={17} /> : <LockKeyhole size={16} />}</span><div><b>{reward.title}</b><small>{reward.note}</small></div><ChevronLeft size={17} /></div>)}</div>
           {showRewardForm ? <div className="reward-form"><input autoFocus value={rewardTitle} onChange={(event) => setRewardTitle(event.target.value)} placeholder="اكتبي اسم المكافأة" onKeyDown={(event) => event.key === 'Enter' && addReward()} /><button onClick={addReward}>إضافة</button></div> : <button className="add-reward" onClick={() => setShowRewardForm(true)}><Plus size={17} /> إضافة مكافأة جديدة</button>}
         </div>
-        <div hidden={activeNav !== 'menu'} className="info-page-links">{[{ id: 'water', Icon: Droplets, title: 'ركن شرب الماء', text: 'سجلي الأكواب والتنبيهات.' }, { id: 'adhkar', Icon: BookOpen, title: 'أذكار الصباح والمساء', text: 'قراءة صوتية وتنبيهات يومية.' }, { id: 'games', Icon: Activity, title: 'ألعابي', text: 'اختاري أو أضيفي لعبة بصورة.' }, { id: 'calendar', Icon: CalendarDays, title: 'أوقاتي', text: 'عدّلي الوجبات والمواعيد.' }, { id: 'trophy', Icon: Trophy, title: 'إنجازاتي', text: 'تابعي نقاطك ومكافآتك.' }].map(({ id, Icon, title, text }) => <button type="button" className={`info-page-link info-page-link-${id}`} key={id} onClick={() => changePage(id)}><span className="info-page-link-icon"><Icon size={24} /></span><strong>{title}</strong><span>{text}</span><ChevronLeft size={16} /></button>)}</div>
+        <div hidden={activeNav !== 'menu'} className="info-page-links">{[{ id: 'water', Icon: Droplets, title: 'ركن شرب الماء', text: 'سجلي الأكواب والتنبيهات.' }, { id: 'adhkar', Icon: BookOpen, title: 'أذكار الصباح والمساء', text: 'قراءة صوتية وتنبيهات يومية.' }, { id: 'games', Icon: Activity, title: 'ألعابي', text: 'اختاري أو أضيفي لعبة بصورة.' }, { id: 'calendar', Icon: CalendarDays, title: 'أوقاتي', text: 'عدّلي الوجبات والمواعيد.' }, { id: 'trophy', Icon: Trophy, title: 'إنجازاتي', text: 'تابعي نقاطك ومكافآتك.' }, { id: 'privacy', Icon: LockKeyhole, title: 'خصوصية سندس', text: 'احفظي كتاباتك وصورك وفيديوهاتك وصوتياتك.' }, { id: 'colors', Icon: Palette, title: 'ألوان تطبيقي', text: 'اختاري كل ألوان التطبيق بنفسك.' }].map(({ id, Icon, title, text }) => <button type="button" className={`info-page-link info-page-link-${id}`} key={id} onClick={() => changePage(id)}><span className="info-page-link-icon"><Icon size={24} /></span><strong>{title}</strong><span>{text}</span><ChevronLeft size={16} /></button>)}</div>
       </section>
 
       <AdhkarPage active={activeNav === 'adhkar'} settings={adhkarSettings} progress={adhkarProgress} onSettingsChange={(next) => { if ((next.morningEnabled || next.eveningEnabled) && !(adhkarSettings.morningEnabled || adhkarSettings.eveningEnabled)) window.AndroidBridge?.requestNotificationPermission(); setAdhkarSettings(next); }} onProgressChange={setAdhkarProgress} onBack={() => changePage('menu', true)} />
       <WaterTrackerPage active={activeNav === 'water'} data={waterData} onChange={(next) => { if (next.remindersEnabled && !waterData.remindersEnabled) window.AndroidBridge?.requestNotificationPermission(); setWaterData(next); recordCloudEvent('water_data_changed', { dailyGoal: next.dailyGoal, cupsByDate: next.cupsByDate, weightByDate: next.weightByDate }); }} onBack={() => changePage('menu', true)} />
+      <PrivacyPage active={activeNav === 'privacy'} cards={privateCards} onCardsChange={setPrivateCards} onBack={() => changePage('menu', true)} />
+      <ThemePage active={activeNav === 'colors'} theme={theme} onThemeChange={setTheme} onBack={() => changePage('menu', true)} />
 
       {activeNav === 'menu' && <section className={`neon-sync-card neon-sync-${cloudSyncStatus}`} aria-live="polite"><span className="neon-sync-icon">{cloudSyncStatus === 'local' ? <CloudOff size={21} /> : <Cloud size={21} />}</span><div className="neon-sync-copy"><b>حفظ سحابي آمن · Neon</b><p>{cloudSyncMessage}</p></div><button type="button" disabled={!neonSyncApiUrl || !syncIdentity || cloudSyncStatus === 'syncing'} onClick={() => setCloudSyncRetry((attempt) => attempt + 1)}><RefreshCw size={15} />{neonSyncApiUrl ? 'مزامنة الآن' : 'غير مفعّلة'}</button></section>}
 
       {activeNav === 'menu' && <section className="info-actions-card"><span className="section-kicker">قائمة سندس</span><h2>كل أدوات سندس في مكان واحد</h2><p>خطتك الغذائية ومواعيد الوجبات محفوظة على هذا الجهاز، وتُزامَن مع Neon عند إعداد الخادم. يمكنك إدارة التنبيهات والأذونات من هنا.</p><button type="button" onClick={() => setShowPermissionSettings(true)}><ShieldCheck size={18} /> إعدادات الجهاز والتنبيهات</button></section>}
-      {activeNav === 'menu' && <section className="theme-picker-card"><div><span className="section-kicker">ألوان سندس</span><h2>اختاري ألوانك بنفسك</h2><p>اضغطي على أي لون واختاري اللون الذي تحبينه. سيتم حفظ اختيارك تلقائيًا.</p></div><div className="theme-color-fields"><label><span>اللون الأساسي</span><input type="color" value={theme.primary} onChange={(event) => setTheme((current) => ({ ...current, primary: event.target.value }))} /></label><label><span>اللون المساعد</span><input type="color" value={theme.secondary} onChange={(event) => setTheme((current) => ({ ...current, secondary: event.target.value }))} /></label><label><span>خلفية الصفحات</span><input type="color" value={theme.surface} onChange={(event) => setTheme((current) => ({ ...current, surface: event.target.value }))} /></label><label><span>لون الكتابة</span><input type="color" value={theme.text} onChange={(event) => setTheme((current) => ({ ...current, text: event.target.value }))} /></label></div><div className="theme-presets" aria-label="ألوان جاهزة">{themePresets.map((preset) => <button type="button" key={preset.name} onClick={() => setTheme(preset.colors)}><span style={{ background: `linear-gradient(135deg, ${preset.colors.primary}, ${preset.colors.secondary})` }} />{preset.name}</button>)}</div></section>}
+
 
       <footer hidden={activeNav !== 'home'}><span>صُنع بحب لسندس</span><span>تذكري: كل خطوة صغيرة انتصار كبير <Heart size={14} fill="currentColor" /></span></footer>
 
