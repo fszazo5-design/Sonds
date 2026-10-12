@@ -587,3 +587,18 @@ footer { display: flex; justify-content: space-between; padding: 25px 0; color: 
 @media (max-width:700px) { .info-page-links { grid-template-columns:repeat(2,minmax(0,1fr)); }.adhkar-hero { padding:22px 18px; }.adhkar-hero h2 { font-size:24px; }.adhkar-hero-symbol { width:72px; height:72px; }.adhkar-toolbar { display:block; }.adhkar-actions { margin-top:12px; }.adhkar-card { grid-template-columns:30px 1fr 30px; }.adhkar-count { grid-column:2; }.adhkar-read-one { grid-column:3; grid-row:1 / span 2; }.adhkar-reminder { flex-wrap:wrap; }.adhkar-reminder-copy { min-width:calc(100% - 55px); } }
 
 .bottom-nav button { min-width: 88px; } .bottom-nav button span { display:block; }
+
+:root { --sonds-primary:#ff007f; --sonds-secondary:#00cfe8; --sonds-surface:#fff8fc; --sonds-text:#34223f; }
+body { background:var(--sonds-surface); color:var(--sonds-text); }
+.primary-button,.game-save-button,.adhkar-actions button:first-child,.water-add-cup,.info-actions-card > button { background:var(--sonds-primary) !important; }
+.section-kicker,.heading-award,.add-reward { color:var(--sonds-primary); }
+.theme-picker-card { margin-top:16px; padding:20px; border:1px solid #eee3ec; border-radius:20px; background:linear-gradient(135deg,var(--sonds-surface),#fff); }
+.theme-picker-card h2 { margin:3px 0 5px; color:var(--sonds-text); font-size:18px; }
+.theme-picker-card p { margin:0; color:#8b7d91; font-size:11px; font-weight:700; }
+.theme-color-fields { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-top:16px; }
+.theme-color-fields label { display:flex; align-items:center; gap:8px; min-height:52px; padding:8px 10px; border:1px solid #eee3ec; border-radius:13px; background:#fff; color:var(--sonds-text); font-size:10px; font-weight:900; }
+.theme-color-fields input { width:34px; height:34px; padding:0; border:0; border-radius:10px; background:none; cursor:pointer; }
+.theme-presets { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.theme-presets button { display:inline-flex; align-items:center; gap:6px; padding:7px 10px; border:1px solid #eee3ec; border-radius:10px; background:#fff; color:var(--sonds-text); font-size:10px; font-weight:900; }
+.theme-presets button span { width:18px; height:18px; border-radius:50%; }
+@media (max-width:700px) { .theme-color-fields { grid-template-columns:repeat(2,minmax(0,1fr)); } }
