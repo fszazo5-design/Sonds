@@ -10,6 +10,8 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.media.MediaPlayer
+import android.speech.tts.TextToSpeech
+import java.util.Locale
 import android.content.pm.PackageManager
 import android.provider.Settings
 import android.webkit.JavascriptInterface
@@ -34,6 +36,7 @@ class MainActivity : Activity() {
     private var userRequestedOtaRefresh = false
     private var countdownPlayer: MediaPlayer? = null
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
+    private var textToSpeech: TextToSpeech? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,6 +52,11 @@ class MainActivity : Activity() {
         appUpdater = AppUpdater(this)
         appUpdater.registerReceiver()
         uiBundleUpdater = UiBundleUpdater(this)
+        textToSpeech = TextToSpeech(this) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                textToSpeech?.language = Locale("ar", "SA")
+            }
+        }
 
         assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
@@ -199,6 +207,9 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         countdownPlayer?.release()
         countdownPlayer = null
+        textToSpeech?.stop()
+        textToSpeech?.shutdown()
+        textToSpeech = null
         if (::appUpdater.isInitialized) appUpdater.unregisterReceiver()
         super.onDestroy()
     }
@@ -270,6 +281,15 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun playGameEndSound() = playGameSound(1.0f)
+
+        @JavascriptInterface
+        fun speakArabic(text: String) = runOnUiThread {
+            if (text.length > 120_000) return@runOnUiThread
+            textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "sonds-adhkar")
+        }
+
+        @JavascriptInterface
+        fun stopSpeech() = runOnUiThread { textToSpeech?.stop() }
 
         private fun playGameSound(volume: Float) = runOnUiThread {
             countdownPlayer?.release()

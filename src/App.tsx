@@ -72,7 +72,7 @@ type Reward = {
   unlocked: boolean;
 };
 
-type AdhkarProgress = { morning: string[]; evening: string[] };
+type AdhkarProgress = { morning: string[]; evening: string[]; ruqyah: string[] };
 type ThemeSettings = { primary: string; secondary: string; surface: string; text: string };
 type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; deletedGameIds?: string[]; gameReminders?: GameReminderSettings; water?: WaterTrackingData; adhkarSettings?: AdhkarSettings; adhkarProgress?: AdhkarProgress; mealMessages?: Record<string, string>; theme?: ThemeSettings; cloudSync?: LocalSyncIdentity | null; modifiedAt?: number; achievementVersion?: number };
 type CloudSyncStatus = 'local' | 'pending' | 'syncing' | 'synced' | 'error';
@@ -230,7 +230,7 @@ function App() {
   const [gameReminders, setGameReminders] = useState<GameReminderSettings>(() => bootData.gameReminders ?? {});
   const [mealMessages, setMealMessages] = useState<Record<string, string>>(() => bootData.mealMessages ?? {});
   const [adhkarSettings, setAdhkarSettings] = useState<AdhkarSettings>(() => bootData.adhkarSettings ?? { morningEnabled: true, morningTime: '07:00', eveningEnabled: true, eveningTime: '19:00' });
-  const [adhkarProgress, setAdhkarProgress] = useState<AdhkarProgress>(() => bootData.adhkarProgress ?? { morning: [], evening: [] });
+  const [adhkarProgress, setAdhkarProgress] = useState<AdhkarProgress>(() => ({ morning: [], evening: [], ruqyah: [], ...(bootData.adhkarProgress ?? {}) }));
   const [waterData, setWaterData] = useState<WaterTrackingData>(() => ({
     dailyGoal: Math.min(16, Math.max(4, bootData.water?.dailyGoal ?? 8)),
     cupsByDate: bootData.water?.cupsByDate ?? {},
@@ -268,7 +268,7 @@ function App() {
     if (saved.gameReminders && typeof saved.gameReminders === 'object') setGameReminders(saved.gameReminders);
     if (saved.mealMessages && typeof saved.mealMessages === 'object' && !Array.isArray(saved.mealMessages)) setMealMessages(saved.mealMessages);
     if (saved.adhkarSettings) setAdhkarSettings(saved.adhkarSettings);
-    if (saved.adhkarProgress) setAdhkarProgress(saved.adhkarProgress);
+    if (saved.adhkarProgress) setAdhkarProgress({ morning: saved.adhkarProgress.morning ?? [], evening: saved.adhkarProgress.evening ?? [], ruqyah: saved.adhkarProgress.ruqyah ?? [] });
     if (saved.water && typeof saved.water === 'object') {
       const goal = Number(saved.water.dailyGoal);
       setWaterData({

@@ -13,6 +13,8 @@ declare global {
       requestExactAlarmAccess(): void;
       playGameCountdownSound(): void;
       playGameEndSound(): void;
+      speakArabic(text: string): void;
+      stopSpeech(): void;
       refreshWebApp(): void;
       checkForAppUpdate(): void;
     };
