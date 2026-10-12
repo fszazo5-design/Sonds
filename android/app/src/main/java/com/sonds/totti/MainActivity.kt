@@ -229,14 +229,18 @@ class MainActivity : Activity() {
     }
 
     private fun requestStartupPermissions() {
-        val permissions = buildList {
-            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                add(Manifest.permission.POST_NOTIFICATIONS)
-            }
-            if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.CAMERA)
-            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.RECORD_AUDIO)
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), STARTUP_PERMISSION_REQUEST)
+        } else {
+            requestExactAlarmAccess()
         }
-        if (permissions.isNotEmpty()) requestPermissions(permissions.toTypedArray(), STARTUP_PERMISSION_REQUEST)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == STARTUP_PERMISSION_REQUEST) {
+            requestExactAlarmAccess()
+        }
     }
 
     private fun loadSavedUi() {
