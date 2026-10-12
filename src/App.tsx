@@ -144,7 +144,7 @@ const navigation: Array<{ id: string; label: string }> = [
   { id: 'calendar', label: 'أوقاتي' },
   { id: 'menu', label: 'قائمة سندس' },
 ];
-const isKnownPage = (page: string): boolean => page === 'water' || page === 'adhkar' || navigation.some((item) => item.id === page);
+const isKnownPage = (page: string): boolean => ['water', 'adhkar', 'games', 'trophy'].includes(page) || navigation.some((item) => item.id === page);
 const neonSyncApiUrl = getNeonSyncApiUrl();
 
 const ACHIEVEMENT_SYSTEM_VERSION = 2;
