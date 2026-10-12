@@ -55,6 +55,7 @@ class MainActivity : Activity() {
         textToSpeech = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 textToSpeech?.language = Locale("ar", "SA")
+                textToSpeech?.setSpeechRate(0.65f)
             }
         }
 

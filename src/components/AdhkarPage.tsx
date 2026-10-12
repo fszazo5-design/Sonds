@@ -58,7 +58,7 @@ const speak = (text: string) => {
   if (!('speechSynthesis' in window)) return false;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'ar-SA'; utterance.rate = 0.82; utterance.pitch = 1;
+  utterance.lang = 'ar-SA'; utterance.rate = 0.66; utterance.pitch = 1;
   window.speechSynthesis.speak(utterance);
   return true;
 };
