@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, Bell, Check, Clock3, Flame, Heart, ImagePlus, Pause, Play, Plus, RotateCcw, Save, Sparkles, Star, Timer, Trophy, X } from 'lucide-react';
+import { Activity, Bell, Check, Trash2, Clock3, Flame, Heart, ImagePlus, Pause, Play, Plus, RotateCcw, Save, Sparkles, Star, Timer, Trophy, X } from 'lucide-react';
 import wallPushupsArt from '../assets/game-wall-pushups.webp';
 import plankArt from '../assets/game-plank.webp';
 import squatsArt from '../assets/game-squats.webp';
@@ -167,6 +167,12 @@ export default function ActivityGames({ active, customGames, reminders, onRemind
     setImagePreview('');
     setFormError('');
   };
+  const deleteCustomGame = (game: ActivityGame) => {
+    if (!game.id.startsWith('custom-game-')) return;
+    onCustomGamesChange(customGames.filter((item) => item.id !== game.id));
+    onEvent?.('custom_game_deleted', { gameId: game.id, title: game.title });
+    if (selectedId === game.id) setSelectedId(null);
+  };
   const chooseImage = (file: File | undefined) => {
     if (!file) return;
     if (!file.type.startsWith('image/')) { setFormError('اختاري ملف صورة فقط.'); return; }
@@ -199,7 +205,7 @@ export default function ActivityGames({ active, customGames, reminders, onRemind
                 const reminder = reminders[game.id] ?? { enabled: false, time: '18:00' };
                 return <div className="game-reminder-row"><label className="game-reminder-toggle"><input type="checkbox" checked={reminder.enabled} onChange={(event) => { onRemindersChange({ ...reminders, [game.id]: { ...reminder, enabled: event.target.checked } }); onEvent?.('game_reminder_changed', { gameId: game.id, enabled: event.target.checked, time: reminder.time }); }} /><Bell size={14} /><span>تنبيه يومي</span></label><input className="game-reminder-time" type="time" aria-label={`موعد التنبيه اليومي للعبة ${game.title}`} value={reminder.time} disabled={!reminder.enabled} onChange={(event) => { onRemindersChange({ ...reminders, [game.id]: { ...reminder, time: event.target.value } }); onEvent?.('game_reminder_changed', { gameId: game.id, enabled: reminder.enabled, time: event.target.value }); }} /></div>;
               })()}
-              <button type="button" className="game-play-button" onClick={() => openGame(game)}><Play size={15} fill="currentColor" /> ابدئي اللعب</button>
+              <div className="game-card-actions"><button type="button" className="game-play-button" onClick={() => openGame(game)}><Play size={15} fill="currentColor" /> ابدئي اللعب</button>{game.id.startsWith('custom-game-') && <button type="button" className="game-delete-button" onClick={() => deleteCustomGame(game)} aria-label={`حذف ${game.title}`} title="حذف اللعبة"><Trash2 size={15} /></button>}</div>
             </div>
           </article>
         ))}

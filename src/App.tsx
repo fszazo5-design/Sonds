@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 import {
   Activity,
+  BookOpen,
   ArrowDown,
   ArrowUp,
   Award,
@@ -40,6 +41,7 @@ import {
 } from 'lucide-react';
 import ActivityGames, { type ActivityGameStats, type CustomActivity, type GameReminderSettings } from './components/ActivityGames';
 import WaterTrackerPage, { type WaterTrackingData } from './components/WaterTrackerPage';
+import AdhkarPage, { type AdhkarSettings } from './components/AdhkarPage';
 import { chooseMealMessage, getMealMessageCategory } from './components/mealMessages';
 import { ensureLocalSyncIdentity, getNeonSyncApiUrl, pullNeonSnapshot, pushNeonEvent, pushNeonSnapshot, type LocalSyncIdentity } from './lib/neonSync';
 import favoriteSongVideo from './assets/favorite-song-with-sundus.mp4';
@@ -74,7 +76,8 @@ type Reward = {
   unlocked: boolean;
 };
 
-type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; gameReminders?: GameReminderSettings; water?: WaterTrackingData; mealMessages?: Record<string, string>; cloudSync?: LocalSyncIdentity | null; modifiedAt?: number; achievementVersion?: number };
+type AdhkarProgress = { morning: string[]; evening: string[] };
+type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; gameReminders?: GameReminderSettings; water?: WaterTrackingData; adhkarSettings?: AdhkarSettings; adhkarProgress?: AdhkarProgress; mealMessages?: Record<string, string>; cloudSync?: LocalSyncIdentity | null; modifiedAt?: number; achievementVersion?: number };
 type CloudSyncStatus = 'local' | 'pending' | 'syncing' | 'synced' | 'error';
 
 const defaultMeals: Meal[] = [
@@ -146,8 +149,9 @@ const navigation: Array<{ Icon: ComponentType<LucideProps>; id: string; label: s
   { Icon: Trophy, id: 'trophy', label: 'إنجازاتي' },
   { Icon: Activity, id: 'games', label: 'ألعابي' },
   { Icon: Info, id: 'info', label: 'معلومات' },
+  { Icon: BookOpen, id: 'adhkar', label: 'الأذكار' },
 ];
-const isKnownPage = (page: string): boolean => page === 'water' || navigation.some((item) => item.id === page);
+const isKnownPage = (page: string): boolean => page === 'water' || page === 'adhkar' || navigation.some((item) => item.id === page);
 const neonSyncApiUrl = getNeonSyncApiUrl();
 
 const ACHIEVEMENT_SYSTEM_VERSION = 2;
@@ -222,6 +226,8 @@ function App() {
   const [customActivities, setCustomActivities] = useState<CustomActivity[]>(() => bootData.customActivities ?? []);
   const [gameReminders, setGameReminders] = useState<GameReminderSettings>(() => bootData.gameReminders ?? {});
   const [mealMessages, setMealMessages] = useState<Record<string, string>>(() => bootData.mealMessages ?? {});
+  const [adhkarSettings, setAdhkarSettings] = useState<AdhkarSettings>(() => bootData.adhkarSettings ?? { morningEnabled: true, morningTime: '07:00', eveningEnabled: true, eveningTime: '19:00' });
+  const [adhkarProgress, setAdhkarProgress] = useState<AdhkarProgress>(() => bootData.adhkarProgress ?? { morning: [], evening: [] });
   const [waterData, setWaterData] = useState<WaterTrackingData>(() => ({
     dailyGoal: Math.min(16, Math.max(4, bootData.water?.dailyGoal ?? 8)),
     cupsByDate: bootData.water?.cupsByDate ?? {},
@@ -249,6 +255,8 @@ function App() {
     if (Array.isArray(saved.customActivities)) setCustomActivities(saved.customActivities);
     if (saved.gameReminders && typeof saved.gameReminders === 'object') setGameReminders(saved.gameReminders);
     if (saved.mealMessages && typeof saved.mealMessages === 'object' && !Array.isArray(saved.mealMessages)) setMealMessages(saved.mealMessages);
+    if (saved.adhkarSettings) setAdhkarSettings(saved.adhkarSettings);
+    if (saved.adhkarProgress) setAdhkarProgress(saved.adhkarProgress);
     if (saved.water && typeof saved.water === 'object') {
       const goal = Number(saved.water.dailyGoal);
       setWaterData({
@@ -348,10 +356,12 @@ function App() {
     customActivities,
     gameReminders,
     water: waterData,
+    adhkarSettings,
+    adhkarProgress,
     mealMessages,
     cloudSync: syncIdentity,
     achievementVersion: ACHIEVEMENT_SYSTEM_VERSION,
-  }), [today, checked, meals, score, streak, rewards, bootData.jumpRope, activityGameStats, customActivities, gameReminders, waterData, mealMessages, syncIdentity]);
+  }), [today, checked, meals, score, streak, rewards, bootData.jumpRope, activityGameStats, customActivities, gameReminders, waterData, adhkarSettings, adhkarProgress, mealMessages, syncIdentity]);
   const currentPlanRef = useRef(currentPlan);
   currentPlanRef.current = currentPlan;
   const lastSavedPlanJsonRef = useRef(JSON.stringify(currentPlan));
@@ -422,8 +432,12 @@ function App() {
     const gameSchedule = Object.entries(gameReminders)
       .filter(([, reminder]) => reminder.enabled && /^([01]\d|2[0-3]):[0-5]\d$/.test(reminder.time))
       .map(([gameId, reminder]) => ({ id: `game-${gameId}`, title: customActivities.find((game) => game.id === gameId)?.title ?? ({ pushups: 'ضغط على الحائط', plank: 'تحدّي البلانك', squats: 'قرفصاء الكرسي', dance: 'رقصة النجوم', stretch: 'تمدد وراحة' }[gameId] ?? 'لعبتك اليومية'), time: reminder.time }));
-    window.AndroidBridge?.saveSchedule(JSON.stringify([...meals.map(({ id, title, time }) => ({ id, title, time })), ...waterReminders, ...gameSchedule]));
-  }, [meals, waterData.remindersEnabled, waterData.reminderTimes, gameReminders, customActivities]);
+    const adhkarSchedule = [
+      ...(adhkarSettings.morningEnabled ? [{ id: 'adhkar-morning', title: 'أذكار الصباح', time: adhkarSettings.morningTime }] : []),
+      ...(adhkarSettings.eveningEnabled ? [{ id: 'adhkar-evening', title: 'أذكار المساء', time: adhkarSettings.eveningTime }] : []),
+    ];
+    window.AndroidBridge?.saveSchedule(JSON.stringify([...meals.map(({ id, title, time }) => ({ id, title, time })), ...waterReminders, ...gameSchedule, ...adhkarSchedule]));
+  }, [meals, waterData.remindersEnabled, waterData.reminderTimes, gameReminders, customActivities, adhkarSettings]);
 
 
 
@@ -583,7 +597,7 @@ function App() {
         <div className="topbar-actions"><button className="icon-button" aria-label="طلب إذن الإشعارات" onClick={() => window.AndroidBridge?.requestNotificationPermission()}><Bell size={19} /><i /></button><button className="icon-button update-button" type="button" aria-label="تحديث الواجهة" title="تحديث الواجهة" onClick={() => window.AndroidBridge?.refreshWebApp()}><Download size={16} /></button><button className="icon-button" aria-label="إعدادات الأذونات" onClick={() => setShowPermissionSettings(true)}><ShieldCheck size={19} /></button><div className="profile-badge">س</div></div>
       </div>
 
-      {activeNav !== 'home' && <section className="page-heading"><div><span className="section-kicker">سندس دي أنا</span><h1>{activeNav === 'water' ? 'متابعة شرب الماء' : navigation.find((item) => item.id === activeNav)?.label}</h1><p>{activeNav === 'calendar' ? 'عدّلي مواعيد وجباتك واحفظي أوقاتك اليومية.' : activeNav === 'trophy' ? 'تابعي تقدمك والجوائز التي حققتها.' : activeNav === 'games' ? 'اختاري لعبة حركة مرحة، أو أضيفي لعبتك الخاصة.' : activeNav === 'water' ? 'سجلّ لطيف لأكوابك وأيامك وتنبيهاتك.' : 'معلومات ونصائح وإعدادات التطبيق.'}</p></div></section>}
+      {activeNav !== 'home' && <section className="page-heading"><div><span className="section-kicker">سندس دي أنا</span><h1>{activeNav === 'water' ? 'متابعة شرب الماء' : activeNav === 'adhkar' ? 'الأذكار' : navigation.find((item) => item.id === activeNav)?.label}</h1><p>{activeNav === 'calendar' ? 'عدّلي مواعيد وجباتك واحفظي أوقاتك اليومية.' : activeNav === 'trophy' ? 'تابعي تقدمك والجوائز التي حققتها.' : activeNav === 'games' ? 'اختاري لعبة حركة مرحة، أو أضيفي لعبتك الخاصة.' : activeNav === 'water' ? 'سجلّ لطيف لأكوابك وأيامك وتنبيهاتك.' : activeNav === 'adhkar' ? 'أذكار مكتوبة، قراءة صوتية، وتنبيهات الصباح والمساء.' : 'معلومات ونصائح وإعدادات التطبيق.'}</p></div></section>}
 
       <section hidden={activeNav !== 'home'} className="hero-card">
         <div className="hero-copy">
@@ -646,9 +660,10 @@ function App() {
           <div className="rewards-list">{rewards.length === 0 ? <div className="empty-rewards">صندوق الإنجازات فارغ الآن. ابدئي وجمّعي نقاطك!</div> : rewards.slice(0, 3).map((reward) => <div className={`reward-row ${reward.unlocked ? 'reward-unlocked' : ''}`} key={reward.id}><span className="reward-status">{reward.unlocked ? <Gift size={17} /> : <LockKeyhole size={16} />}</span><div><b>{reward.title}</b><small>{reward.note}</small></div><ChevronLeft size={17} /></div>)}</div>
           {showRewardForm ? <div className="reward-form"><input autoFocus value={rewardTitle} onChange={(event) => setRewardTitle(event.target.value)} placeholder="اكتبي اسم المكافأة" onKeyDown={(event) => event.key === 'Enter' && addReward()} /><button onClick={addReward}>إضافة</button></div> : <button className="add-reward" onClick={() => setShowRewardForm(true)}><Plus size={17} /> إضافة مكافأة جديدة</button>}
         </div>
-        <button hidden={activeNav !== 'info'} type="button" className="water-info-card" onClick={() => changePage('water')}><span className="water-info-visual"><Droplets size={32} /><span>💧</span></span><span className="section-kicker">توتي يفكّرك بلطف</span><strong>ركن شرب الماء</strong><span className="water-info-description">علّمي أكوابك، راقبي أسبوعك، واختاري تذكيرًا صوتيًا يناسبك.</span><span className="water-info-link">افتحي سجل الماء <ChevronLeft size={16} /></span></button>
+        <div hidden={activeNav !== 'info'} className="info-page-links">{[{ id: 'water', Icon: Droplets, title: 'ركن شرب الماء', text: 'سجلي الأكواب والتنبيهات.' }, { id: 'adhkar', Icon: BookOpen, title: 'أذكار الصباح والمساء', text: 'قراءة صوتية وتنبيهات يومية.' }, { id: 'games', Icon: Activity, title: 'ألعابي', text: 'اختاري أو أضيفي لعبة بصورة.' }, { id: 'calendar', Icon: CalendarDays, title: 'أوقاتي', text: 'عدّلي الوجبات والمواعيد.' }, { id: 'trophy', Icon: Trophy, title: 'إنجازاتي', text: 'تابعي نقاطك ومكافآتك.' }].map(({ id, Icon, title, text }) => <button type="button" className={`info-page-link info-page-link-${id}`} key={id} onClick={() => changePage(id)}><span className="info-page-link-icon"><Icon size={24} /></span><strong>{title}</strong><span>{text}</span><ChevronLeft size={16} /></button>)}</div>
       </section>
 
+      <AdhkarPage active={activeNav === 'adhkar'} settings={adhkarSettings} progress={adhkarProgress} onSettingsChange={setAdhkarSettings} onProgressChange={setAdhkarProgress} onBack={() => changePage('info', true)} />
       <WaterTrackerPage active={activeNav === 'water'} data={waterData} onChange={(next) => { setWaterData(next); recordCloudEvent('water_data_changed', { dailyGoal: next.dailyGoal, cupsByDate: next.cupsByDate, weightByDate: next.weightByDate }); }} onBack={() => changePage('info', true)} />
 
       {activeNav === 'info' && <section className={`neon-sync-card neon-sync-${cloudSyncStatus}`} aria-live="polite"><span className="neon-sync-icon">{cloudSyncStatus === 'local' ? <CloudOff size={21} /> : <Cloud size={21} />}</span><div className="neon-sync-copy"><b>حفظ سحابي آمن · Neon</b><p>{cloudSyncMessage}</p></div><button type="button" disabled={!neonSyncApiUrl || !syncIdentity || cloudSyncStatus === 'syncing'} onClick={() => setCloudSyncRetry((attempt) => attempt + 1)}><RefreshCw size={15} />{neonSyncApiUrl ? 'مزامنة الآن' : 'غير مفعّلة'}</button></section>}
