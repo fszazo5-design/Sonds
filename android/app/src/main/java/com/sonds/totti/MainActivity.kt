@@ -13,6 +13,7 @@ import android.media.MediaPlayer
 import android.content.pm.PackageManager
 import android.provider.Settings
 import android.webkit.JavascriptInterface
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -32,6 +33,7 @@ class MainActivity : Activity() {
     private lateinit var uiBundleUpdater: UiBundleUpdater
     private var userRequestedOtaRefresh = false
     private var countdownPlayer: MediaPlayer? = null
+    private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,7 +65,35 @@ class MainActivity : Activity() {
             settings.allowFileAccessFromFileURLs = false
             settings.allowUniversalAccessFromFileURLs = false
             settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-            webChromeClient = WebChromeClient()
+            webChromeClient = object : WebChromeClient() {
+                override fun onShowFileChooser(
+                    view: WebView?,
+                    filePath: ValueCallback<Array<Uri>>?,
+                    fileChooserParams: FileChooserParams?
+                ): Boolean {
+                    this@MainActivity.filePathCallback?.onReceiveValue(null)
+                    this@MainActivity.filePathCallback = filePath
+                    val chooserIntent = try {
+                        fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "image/*"
+                        }
+                    } catch (_: Exception) {
+                        Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "image/*"
+                        }
+                    }
+                    return try {
+                        startActivityForResult(chooserIntent, FILE_CHOOSER_REQUEST)
+                        true
+                    } catch (_: Exception) {
+                        this@MainActivity.filePathCallback = null
+                        filePath?.onReceiveValue(null)
+                        false
+                    }
+                }
+            }
             webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(
                     view: WebView,
@@ -140,6 +170,27 @@ class MainActivity : Activity() {
         Handler(Looper.getMainLooper()).postDelayed({ requestStartupPermissions() }, 500)
     }
 
+    @Deprecated("Deprecated in Android API; retained for broad device compatibility")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == FILE_CHOOSER_REQUEST) {
+            val callback = filePathCallback
+            filePathCallback = null
+            if (callback != null) {
+                val results = if (resultCode == RESULT_OK && data != null) {
+                    val clipData = data.clipData
+                    when {
+                        clipData != null -> Array(clipData.itemCount) { index -> clipData.getItemAt(index).uri }
+                        data.data != null -> arrayOf(data.data!!)
+                        else -> null
+                    }
+                } else null
+                callback.onReceiveValue(results)
+            }
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
+    }
+
     override fun onResume() {
         super.onResume()
         if (::appUpdater.isInitialized) appUpdater.onResume()
@@ -207,6 +258,7 @@ class MainActivity : Activity() {
 
     private companion object {
         const val STARTUP_PERMISSION_REQUEST = 300
+        const val FILE_CHOOSER_REQUEST = 401
         const val LOCAL_ASSET_HOST = "appassets.androidplatform.net"
         const val APP_ASSET_START_URL = "https://appassets.androidplatform.net/assets/www/index.html"
         const val OTA_UI_START_URL = "https://appassets.androidplatform.net/ota/index.html"
