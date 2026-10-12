@@ -96,6 +96,16 @@ async function saveNormalizedState(sql, deviceId, state) {
   const water = asObject(state.water);
   const cupsByDate = asObject(water.cupsByDate);
   const weightByDate = asObject(water.weightByDate);
+  const adhkarSettings = asObject(state.adhkarSettings);
+  const adhkarProgress = asObject(state.adhkarProgress);
+  const appSettings = {
+    dailyWaterGoal: integer(water.dailyGoal, 8),
+    waterRemindersEnabled: Boolean(water.remindersEnabled),
+    waterReminderTimes: asArray(water.reminderTimes),
+    adhkarSettings,
+    gameReminders: reminders,
+    achievementVersion: integer(state.achievementVersion),
+  };
   await sql`DELETE FROM public.sonds_meals WHERE device_id = ${deviceId}::uuid`;
   for (const meal of meals) {
     if (!meal || typeof meal !== 'object' || !text(meal.id) || !text(meal.title)) continue;
@@ -143,6 +153,13 @@ async function saveNormalizedState(sql, deviceId, state) {
     if (!Number.isFinite(numericWeight)) continue;
     await sql`INSERT INTO public.sonds_water_weights (device_id, day_date, weight, updated_at) VALUES (${deviceId}::uuid, ${date}::date, ${numericWeight}, NOW()) ON CONFLICT (device_id, day_date) DO UPDATE SET weight=EXCLUDED.weight, updated_at=NOW()`;
   }
+  const validTime = (value, fallback) => /^([01]\d|2[0-3]):[0-5]\d$/.test(text(value)) ? text(value) : fallback;
+  await sql`INSERT INTO public.sonds_adhkar_settings (device_id, morning_enabled, morning_time, evening_enabled, evening_time, morning_progress, evening_progress, updated_at)
+    VALUES (${deviceId}::uuid, ${Boolean(adhkarSettings.morningEnabled)}, ${validTime(adhkarSettings.morningTime, '07:00')}, ${Boolean(adhkarSettings.eveningEnabled)}, ${validTime(adhkarSettings.eveningTime, '19:00')}, ${JSON.stringify(asArray(adhkarProgress.morning))}::jsonb, ${JSON.stringify(asArray(adhkarProgress.evening))}::jsonb, NOW())
+    ON CONFLICT (device_id) DO UPDATE SET morning_enabled=EXCLUDED.morning_enabled, morning_time=EXCLUDED.morning_time, evening_enabled=EXCLUDED.evening_enabled, evening_time=EXCLUDED.evening_time, morning_progress=EXCLUDED.morning_progress, evening_progress=EXCLUDED.evening_progress, updated_at=NOW()`;
+  await sql`INSERT INTO public.sonds_app_settings (device_id, settings, updated_at)
+    VALUES (${deviceId}::uuid, ${JSON.stringify(appSettings)}::jsonb, NOW())
+    ON CONFLICT (device_id) DO UPDATE SET settings=EXCLUDED.settings, updated_at=NOW()`;
 }
 
 async function handleSync(request, env, cors) {
