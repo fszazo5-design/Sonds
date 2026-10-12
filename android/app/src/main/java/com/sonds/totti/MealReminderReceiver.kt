@@ -72,9 +72,9 @@ internal class MealAlarmScheduler(private val context: Context) {
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build()
                 val channel = android.app.NotificationChannel(
-                    CHANNEL_ID, "تذكيرات مواعيد الوجبات", NotificationManager.IMPORTANCE_HIGH
+                    CHANNEL_ID, "تذكيرات سندس", NotificationManager.IMPORTANCE_HIGH
                 ).apply {
-                    description = "تنبيهات محلية لمواعيد خطة التغذية بالمقطع الصوتي المرفق"
+                    description = "تنبيهات فورية محلية للأذكار والماء والوجبات بصوت التطبيق"
                     setSound(soundUri, audioAttributes)
                 }
                 manager.createNotificationChannel(channel)
@@ -97,11 +97,17 @@ class MealReminderReceiver : BroadcastReceiver() {
                 context, 0, Intent(context, MainActivity::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
+            val notificationCopy = when {
+                meal.id.startsWith("adhkar-morning") -> "حان وقت أذكار الصباح — ابدئي يومك بذكر الله."
+                meal.id.startsWith("adhkar-evening") -> "حان وقت أذكار المساء — اختمي يومك بطمأنينة."
+                meal.id.startsWith("water-reminder") -> "تذكير لطيف من توتي — خذي كوب ماء الآن."
+                else -> "تذكير لطيف من توتي — خطتك الصحية بانتظارك."
+            }
             val notification = Notification.Builder(context, MealAlarmScheduler.CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_popup_reminder)
-                .setContentTitle("حان موعد ${meal.title}")
-                .setContentText("تذكير لطيف من توتي — خطتك الصحية بانتظارك")
-                .setStyle(Notification.BigTextStyle().bigText("تذكير لطيف من توتي — حان الآن موعد ${meal.title} ضمن خطتك الصحية."))
+                .setContentTitle(if (meal.id.startsWith("water-reminder")) "وقت شرب الماء" else if (meal.id.startsWith("adhkar")) meal.title else "حان موعد ${meal.title}")
+                .setContentText(notificationCopy)
+                .setStyle(Notification.BigTextStyle().bigText(notificationCopy))
                 .setAutoCancel(true)
                 .setContentIntent(openApp)
                 .setCategory(Notification.CATEGORY_REMINDER)

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ComponentType } from 'react';
 import {
   Activity,
   BookOpen,
@@ -19,8 +18,6 @@ import {
   Flame,
   Gift,
   Heart,
-  Info,
-  LayoutDashboard,
   LockKeyhole,
   Mic,
   Music2,
@@ -37,7 +34,6 @@ import {
   VolumeX,
   X,
   Zap,
-  type LucideProps,
 } from 'lucide-react';
 import ActivityGames, { type ActivityGameStats, type CustomActivity, type GameReminderSettings } from './components/ActivityGames';
 import WaterTrackerPage, { type WaterTrackingData } from './components/WaterTrackerPage';
@@ -143,13 +139,10 @@ const formatMealTime = (time: string): string => {
   value.setHours(hour, minute, 0, 0);
   return new Intl.DateTimeFormat('ar-EG', { hour: '2-digit', minute: '2-digit' }).format(value);
 };
-const navigation: Array<{ Icon: ComponentType<LucideProps>; id: string; label: string }> = [
-  { Icon: LayoutDashboard, id: 'home', label: 'الرئيسية' },
-  { Icon: CalendarDays, id: 'calendar', label: 'أوقاتي' },
-  { Icon: Trophy, id: 'trophy', label: 'إنجازاتي' },
-  { Icon: Activity, id: 'games', label: 'ألعابي' },
-  { Icon: Info, id: 'info', label: 'معلومات' },
-  { Icon: BookOpen, id: 'adhkar', label: 'الأذكار' },
+const navigation: Array<{ id: string; label: string }> = [
+  { id: 'home', label: 'الرئيسية' },
+  { id: 'calendar', label: 'أوقاتي' },
+  { id: 'menu', label: 'قائمة سندس' },
 ];
 const isKnownPage = (page: string): boolean => page === 'water' || page === 'adhkar' || navigation.some((item) => item.id === page);
 const neonSyncApiUrl = getNeonSyncApiUrl();
@@ -663,12 +656,12 @@ function App() {
         <div hidden={activeNav !== 'info'} className="info-page-links">{[{ id: 'water', Icon: Droplets, title: 'ركن شرب الماء', text: 'سجلي الأكواب والتنبيهات.' }, { id: 'adhkar', Icon: BookOpen, title: 'أذكار الصباح والمساء', text: 'قراءة صوتية وتنبيهات يومية.' }, { id: 'games', Icon: Activity, title: 'ألعابي', text: 'اختاري أو أضيفي لعبة بصورة.' }, { id: 'calendar', Icon: CalendarDays, title: 'أوقاتي', text: 'عدّلي الوجبات والمواعيد.' }, { id: 'trophy', Icon: Trophy, title: 'إنجازاتي', text: 'تابعي نقاطك ومكافآتك.' }].map(({ id, Icon, title, text }) => <button type="button" className={`info-page-link info-page-link-${id}`} key={id} onClick={() => changePage(id)}><span className="info-page-link-icon"><Icon size={24} /></span><strong>{title}</strong><span>{text}</span><ChevronLeft size={16} /></button>)}</div>
       </section>
 
-      <AdhkarPage active={activeNav === 'adhkar'} settings={adhkarSettings} progress={adhkarProgress} onSettingsChange={setAdhkarSettings} onProgressChange={setAdhkarProgress} onBack={() => changePage('info', true)} />
-      <WaterTrackerPage active={activeNav === 'water'} data={waterData} onChange={(next) => { setWaterData(next); recordCloudEvent('water_data_changed', { dailyGoal: next.dailyGoal, cupsByDate: next.cupsByDate, weightByDate: next.weightByDate }); }} onBack={() => changePage('info', true)} />
+      <AdhkarPage active={activeNav === 'adhkar'} settings={adhkarSettings} progress={adhkarProgress} onSettingsChange={(next) => { if ((next.morningEnabled || next.eveningEnabled) && !(adhkarSettings.morningEnabled || adhkarSettings.eveningEnabled)) window.AndroidBridge?.requestNotificationPermission(); setAdhkarSettings(next); }} onProgressChange={setAdhkarProgress} onBack={() => changePage('menu', true)} />
+      <WaterTrackerPage active={activeNav === 'water'} data={waterData} onChange={(next) => { if (next.remindersEnabled && !waterData.remindersEnabled) window.AndroidBridge?.requestNotificationPermission(); setWaterData(next); recordCloudEvent('water_data_changed', { dailyGoal: next.dailyGoal, cupsByDate: next.cupsByDate, weightByDate: next.weightByDate }); }} onBack={() => changePage('menu', true)} />
 
-      {activeNav === 'info' && <section className={`neon-sync-card neon-sync-${cloudSyncStatus}`} aria-live="polite"><span className="neon-sync-icon">{cloudSyncStatus === 'local' ? <CloudOff size={21} /> : <Cloud size={21} />}</span><div className="neon-sync-copy"><b>حفظ سحابي آمن · Neon</b><p>{cloudSyncMessage}</p></div><button type="button" disabled={!neonSyncApiUrl || !syncIdentity || cloudSyncStatus === 'syncing'} onClick={() => setCloudSyncRetry((attempt) => attempt + 1)}><RefreshCw size={15} />{neonSyncApiUrl ? 'مزامنة الآن' : 'غير مفعّلة'}</button></section>}
+      {activeNav === 'menu' && <section className={`neon-sync-card neon-sync-${cloudSyncStatus}`} aria-live="polite"><span className="neon-sync-icon">{cloudSyncStatus === 'local' ? <CloudOff size={21} /> : <Cloud size={21} />}</span><div className="neon-sync-copy"><b>حفظ سحابي آمن · Neon</b><p>{cloudSyncMessage}</p></div><button type="button" disabled={!neonSyncApiUrl || !syncIdentity || cloudSyncStatus === 'syncing'} onClick={() => setCloudSyncRetry((attempt) => attempt + 1)}><RefreshCw size={15} />{neonSyncApiUrl ? 'مزامنة الآن' : 'غير مفعّلة'}</button></section>}
 
-      {activeNav === 'info' && <section className="info-actions-card"><span className="section-kicker">حول التطبيق</span><h2>سندس دي أنا</h2><p>خطتك الغذائية ومواعيد الوجبات محفوظة على هذا الجهاز، وتُزامَن مع Neon عند إعداد الخادم. يمكنك إدارة التنبيهات والأذونات من هنا.</p><button type="button" onClick={() => setShowPermissionSettings(true)}><ShieldCheck size={18} /> إعدادات الجهاز والتنبيهات</button></section>}
+      {activeNav === 'menu' && <section className="info-actions-card"><span className="section-kicker">قائمة سندس</span><h2>كل أدوات سندس في مكان واحد</h2><p>خطتك الغذائية ومواعيد الوجبات محفوظة على هذا الجهاز، وتُزامَن مع Neon عند إعداد الخادم. يمكنك إدارة التنبيهات والأذونات من هنا.</p><button type="button" onClick={() => setShowPermissionSettings(true)}><ShieldCheck size={18} /> إعدادات الجهاز والتنبيهات</button></section>}
 
       <footer hidden={activeNav !== 'home'}><span>صُنع بحب لسندس</span><span>تذكري: كل خطوة صغيرة انتصار كبير <Heart size={14} fill="currentColor" /></span></footer>
 
@@ -676,7 +669,7 @@ function App() {
 
       {showFavoriteSong && <div className="celebration-overlay favorite-song-overlay" onClick={() => setShowFavoriteSong(false)}><section className="favorite-song-modal" role="dialog" aria-modal="true" aria-labelledby="favorite-song-title" onClick={(event) => event.stopPropagation()}><button className="close-modal" onClick={() => setShowFavoriteSong(false)} aria-label="إغلاق الفيديو"><X size={18} /></button><div className="favorite-song-modal-heading"><div className="favorite-song-icon"><Music2 size={22} /></div><div><span className="section-kicker">أغنية سندس</span><h2 id="favorite-song-title">أغنيتي المفضلة مع سندس</h2></div></div><video className="favorite-song-video" controls playsInline preload="metadata" src={favoriteSongVideo} /><p className="favorite-song-caption">استمتعي بالمشاهدة والاستماع مع كلمات الأغنية.</p></section></div>}
 
-      <nav className="bottom-nav" aria-label="التنقل بين صفحات التطبيق">{navigation.map(({ Icon, id, label }) => <button key={id} aria-current={activeNav === id ? 'page' : undefined} className={`nav-item-${id} ${activeNav === id ? 'nav-active' : ''}`} onClick={() => changePage(id)}><Icon size={20} /><span>{label}</span></button>)}</nav>
+      <nav className="bottom-nav" aria-label="التنقل بين صفحات التطبيق">{navigation.map(({ id, label }) => <button key={id} aria-current={activeNav === id ? 'page' : undefined} className={`nav-item-${id} ${activeNav === id ? 'nav-active' : ''}`} onClick={() => changePage(id)}><span>{label}</span></button>)}</nav>
 
       {celebrationMeal && <div className="celebration-overlay"><div className="star-sparks" aria-hidden="true"><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span><span>✦</span><span>★</span><span>✧</span></div><div className="celebration-modal" role="dialog" aria-modal="true" aria-label="تهنئة إتمام الوجبة"><button className="close-modal" onClick={() => setCelebrationMeal(null)} aria-label="إغلاق التهنئة"><X size={18} /></button><div className="applause-emoji" aria-hidden="true">👏</div><span className="section-kicker">تصفيق لكِ! رسالة من بابا سعيد</span><h2>أحسنتِ يا بطلة!</h2><p>أتممتِ {celebrationMeal.title} بنجاح.</p><blockquote className="celebration-love-note"><Heart size={16} fill="currentColor" /><span>{celebrationMeal.message}</span><Sparkles size={16} /></blockquote><div className="celebration-score"><Sparkles size={18} /> +2 نقطة إنجاز</div><button className="primary-button" onClick={() => setCelebrationMeal(null)}>رائع! <ChevronLeft size={18} /></button></div></div>}
     </main>
