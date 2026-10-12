@@ -228,6 +228,23 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun requestExactAlarmAccessOnStartup() = runOnUiThread {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
+            if (!alarmManager.canScheduleExactAlarms()) {
+                try {
+                    startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                        data = Uri.parse("package:$packageName")
+                    })
+                } catch (_: Exception) {
+                    startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.parse("package:$packageName")
+                    })
+                }
+            }
+        }
+    }
+
     private fun requestStartupPermissions() {
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), STARTUP_PERMISSION_REQUEST)
@@ -239,7 +256,7 @@ class MainActivity : Activity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == STARTUP_PERMISSION_REQUEST) {
-            requestExactAlarmAccess()
+            requestExactAlarmAccessOnStartup()
         }
     }
 
@@ -349,24 +366,7 @@ class MainActivity : Activity() {
         fun requestMicrophonePermission() = requestMediaPermission(Manifest.permission.RECORD_AUDIO, 303)
 
         @JavascriptInterface
-        fun requestExactAlarmAccess() = runOnUiThread {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
-                if (!alarmManager.canScheduleExactAlarms()) {
-                    try {
-                        startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                            data = Uri.parse("package:$packageName")
-                        })
-                    } catch (_: Exception) {
-                        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = Uri.parse("package:$packageName")
-                        })
-                    }
-                } else {
-                    Toast.makeText(this@MainActivity, "دقة مواعيد التنبيه مفعّلة", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
+        fun requestExactAlarmAccess() = requestExactAlarmAccessOnStartup()
 
         private fun requestMediaPermission(permission: String, requestCode: Int) = runOnUiThread {
             if (checkSelfPermission(permission) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
