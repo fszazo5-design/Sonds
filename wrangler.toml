@@ -5,3 +5,7 @@ workers_dev = true
 
 [vars]
 ALLOWED_ORIGINS = "https://appassets.androidplatform.net,https://fszazo5-design.github.io"
+
+# The Worker Build preview is intentionally isolated from the production app origin.
+[previews.vars]
+ALLOWED_ORIGINS = "https://sonds-preview.example.invalid"

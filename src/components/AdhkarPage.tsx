@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Bell, BookOpen, Check, ChevronRight, Moon, Play, RotateCcw, ShieldCheck, Sun, Volume2, VolumeX } from 'lucide-react';
+import AdhkarAudioPlayer from './AdhkarAudioPlayer';
 
 export type AdhkarSettings = {
   morningEnabled: boolean;
@@ -54,6 +55,7 @@ const constRuqyah: AdhkarItem[] = [
 ];
 
 const speak = (text: string) => {
+  window.dispatchEvent(new Event('adhkar:stop-mp3'));
   if (window.AndroidBridge?.speakArabic) { window.AndroidBridge.speakArabic(text); return true; }
   if (!('speechSynthesis' in window)) return false;
   window.speechSynthesis.cancel();
@@ -79,8 +81,9 @@ export default function AdhkarPage({ active, settings, progress, onSettingsChang
   const readAll = () => { if (speaking) { stopSpeak(); setSpeaking(false); return; } setSpeaking(speak(currentText)); window.setTimeout(() => setSpeaking(false), Math.max(3000, currentText.length * 45)); };
   return <section hidden={!active} className="adhkar-page">
     <button type="button" className="adhkar-back-button" onClick={onBack}><ChevronRight size={18} /> العودة إلى قائمة سندس</button>
-    <header className="adhkar-hero"><div><span className="adhkar-eyebrow"><BookOpen size={15} /> نور يومك وطمأنينة قلبك</span><h2>الأذكار والرقية الشرعية</h2><p>نصوص موسعة من القرآن والسنة، مع قراءة صوتية محلية تعمل دون الحاجة إلى اتصال داخل التطبيق.</p></div><div className="adhkar-hero-symbol">{tab === 'morning' ? <Sun size={55} /> : tab === 'evening' ? <Moon size={55} /> : <ShieldCheck size={55} />}</div></header>
+    <header className="adhkar-hero"><div><span className="adhkar-eyebrow"><BookOpen size={15} /> نور يومك وطمأنينة قلبك</span><h2>الأذكار والرقية الشرعية</h2><p>نصوص من القرآن والسنة، وقراءة صوتية محلية للأدعية، وتلاوات MP3 للسور القرآنية عند الاتصال بالإنترنت.</p></div><div className="adhkar-hero-symbol">{tab === 'morning' ? <Sun size={55} /> : tab === 'evening' ? <Moon size={55} /> : <ShieldCheck size={55} />}</div></header>
     <div className="adhkar-tabs" role="tablist"><button type="button" className={tab === 'morning' ? 'active' : ''} onClick={() => setTab('morning')}><Sun size={18} /> أذكار الصباح</button><button type="button" className={tab === 'evening' ? 'active' : ''} onClick={() => setTab('evening')}><Moon size={18} /> أذكار المساء</button><button type="button" className={tab === 'ruqyah' ? 'active' : ''} onClick={() => setTab('ruqyah')}><ShieldCheck size={18} /> الرقية الشرعية</button></div>
+    <AdhkarAudioPlayer active={active} tab={tab} onPlay={() => { stopSpeak(); setSpeaking(false); }} />
     <section className="adhkar-toolbar"><div><span className="section-kicker">{title}</span><h3>{completed} من {list.length} مكتملة</h3></div><div className="adhkar-actions"><button type="button" onClick={readAll}>{speaking ? <VolumeX size={16} /> : <Volume2 size={16} />} {speaking ? 'إيقاف القراءة' : 'قراءة صوتية'}</button><button type="button" onClick={() => onProgressChange({ ...progress, [tab]: [] })}><RotateCcw size={15} /> إعادة</button></div></section>
     <div className="adhkar-progress"><span style={{ width: `${list.length ? completed / list.length * 100 : 0}%` }} /></div>
     <div className="adhkar-list">{list.map((item) => <article className={`adhkar-card ${done.includes(item.id) ? 'adhkar-done' : ''}`} key={item.id}><button type="button" className="adhkar-check" onClick={() => toggleItem(item.id)} aria-label={`تحديد ${item.text}`}>{done.includes(item.id) ? <Check size={20} /> : <span />}</button><div className="adhkar-card-copy"><p>{item.text}</p>{item.source && <small>{item.source}</small>}</div><span className="adhkar-count">{item.count} {item.count === 1 ? 'مرة' : 'مرات'}</span><button type="button" className="adhkar-read-one" aria-label="قراءة النص" onClick={() => { setSpeaking(speak(item.text)); }}><Play size={15} fill="currentColor" /></button></article>)}</div>
