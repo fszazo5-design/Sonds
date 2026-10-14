@@ -37,6 +37,7 @@ import {
   Zap,
 } from 'lucide-react';
 import ActivityGames, { type ActivityGameStats, type CustomActivity, type GameReminderSettings } from './components/ActivityGames';
+import AwqatiVideoCard from './components/AwqatiVideoCard';
 import WaterTrackerPage, { type WaterTrackingData } from './components/WaterTrackerPage';
 import AdhkarPage, { type AdhkarSettings } from './components/AdhkarPage';
 import PrivacyPage, { type PrivateCard } from './components/PrivacyPage';
@@ -650,6 +651,7 @@ function App() {
       </section>
 
       <section hidden={activeNav !== 'calendar'} className="meal-section">
+        <AwqatiVideoCard active={activeNav === 'calendar'} apiBaseUrl={neonSyncApiUrl} />
         <div className="section-title-row"><div><span className="section-kicker">خطة التغذية</span><h2>وجباتك اليوم</h2></div><div className="meal-list-actions"><span className="target-pill"><span /> الهدف 1700 سعرة</span><button type="button" className="add-meal-button" onClick={startMealAdd}><Plus size={17} /> إضافة وجبة</button></div></div>
         <div className="meal-list">
           {meals.map((meal, index) => {

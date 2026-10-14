@@ -1,4 +1,5 @@
 import { neon } from '@neondatabase/serverless';
+import { parseByteRange } from './media-core.mjs';
 import {
   getAllowedOrigins,
   serializeSyncState,
@@ -30,8 +31,9 @@ function corsHeaders(request, env) {
   if (origin === null) return { allowed: true, headers };
   if (!allowedOrigins.has(origin)) return { allowed: false, headers };
   headers.set('Access-Control-Allow-Origin', origin);
-  headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  headers.set('Access-Control-Allow-Headers', 'Content-Type');
+  headers.set('Access-Control-Allow-Methods', 'GET, HEAD, POST, OPTIONS');
+  headers.set('Access-Control-Allow-Headers', 'Content-Type, Range, If-None-Match');
+  headers.set('Access-Control-Expose-Headers', 'Accept-Ranges, Content-Length, Content-Range, ETag');
   headers.set('Access-Control-Max-Age', '600');
   return { allowed: true, headers };
 }
@@ -231,6 +233,84 @@ async function handleSync(request, env, cors) {
   return jsonResponse({ error: 'action_must_be_pull_push_or_event' }, 400, cors);
 }
 
+async function handleMediaRequest(request, env, cors, url) {
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    cors.set('Allow', 'GET, HEAD, OPTIONS');
+    return jsonResponse({ error: 'method_not_allowed' }, 405, cors);
+  }
+
+  if (url.pathname === '/v1/media') {
+    const sql = getSql(env);
+    const videos = await sql`
+      SELECT video_id AS id, title, mime_type AS "mimeType", byte_size AS "byteSize",
+             duration_seconds AS "durationSeconds", sort_order AS "sortOrder"
+      FROM public.sonds_video_library
+      WHERE is_active = TRUE
+      ORDER BY sort_order, video_id
+    `;
+    const headers = new Headers(cors);
+    headers.set('Cache-Control', 'public, max-age=300');
+    return Response.json({ videos }, { status: 200, headers });
+  }
+
+  const encodedId = url.pathname.slice('/v1/media/'.length);
+  let videoId;
+  try {
+    videoId = decodeURIComponent(encodedId);
+  } catch {
+    return jsonResponse({ error: 'invalid_video_id' }, 400, cors);
+  }
+  if (!/^[a-z0-9-]{1,64}$/.test(videoId)) return jsonResponse({ error: 'invalid_video_id' }, 400, cors);
+
+  const sql = getSql(env);
+  const [video] = await sql`
+    SELECT video_id AS id, mime_type AS "mimeType", byte_size AS "byteSize", sha256
+    FROM public.sonds_video_library
+    WHERE video_id = ${videoId} AND is_active = TRUE
+    LIMIT 1
+  `;
+  if (!video) return jsonResponse({ error: 'video_not_found' }, 404, cors);
+
+  const size = Number(video.byteSize);
+  const range = parseByteRange(request.headers.get('Range'), size);
+  if (!range) {
+    const headers = new Headers(cors);
+    headers.set('Accept-Ranges', 'bytes');
+    headers.set('Content-Range', `bytes */${size}`);
+    headers.set('Content-Length', '0');
+    headers.set('Cache-Control', 'public, max-age=3600');
+    return new Response(null, { status: 416, headers });
+  }
+
+  const etag = `"${video.sha256}"`;
+  const responseHeaders = new Headers(cors);
+  responseHeaders.set('Content-Type', video.mimeType);
+  responseHeaders.set('Accept-Ranges', 'bytes');
+  responseHeaders.set('Content-Length', String(range.end - range.start + 1));
+  responseHeaders.set('Cache-Control', 'public, max-age=3600');
+  responseHeaders.set('ETag', etag);
+  responseHeaders.set('Content-Disposition', `inline; filename="${video.id}.mp4"`);
+  if (range.partial) responseHeaders.set('Content-Range', `bytes ${range.start}-${range.end}/${size}`);
+
+  if (!range.partial && request.headers.get('If-None-Match') === etag) {
+    return new Response(null, { status: 304, headers: responseHeaders });
+  }
+  if (request.method === 'HEAD') return new Response(null, { status: range.partial ? 206 : 200, headers: responseHeaders });
+
+  const length = range.end - range.start + 1;
+  const [chunk] = await sql`
+    SELECT encode(substring(video_bytes FROM ${range.start + 1} FOR ${length}), 'base64') AS data
+    FROM public.sonds_video_library
+    WHERE video_id = ${videoId} AND is_active = TRUE
+    LIMIT 1
+  `;
+  if (!chunk?.data) return jsonResponse({ error: 'video_data_unavailable' }, 503, cors);
+  const body = Uint8Array.from(atob(chunk.data), (character) => character.charCodeAt(0));
+  if (body.byteLength !== length) return jsonResponse({ error: 'video_data_corrupt' }, 503, cors);
+  return new Response(body, { status: range.partial ? 206 : 200, headers: responseHeaders });
+}
+
 export default {
   async fetch(request, env) {
     const cors = corsHeaders(request, env);
@@ -239,6 +319,15 @@ export default {
 
     if (url.pathname === '/health' && request.method === 'GET') {
       return jsonResponse({ ok: true, databaseConfigured: Boolean(env.NEON_DATABASE_URL) }, 200, cors.headers);
+    }
+    if (url.pathname === '/v1/media' || url.pathname.startsWith('/v1/media/')) {
+      try {
+        return await handleMediaRequest(request, env, cors.headers, url);
+      } catch (error) {
+        const status = Number.isInteger(error?.statusCode) ? error.statusCode : 503;
+        if (status >= 500) console.error('Neon video request failed; verify Worker secret and video table migration.');
+        return jsonResponse({ error: status === 503 ? 'media_service_unavailable' : (error?.message ?? 'media_request_failed') }, status, cors.headers);
+      }
     }
     if (url.pathname !== '/v1/sync') return jsonResponse({ error: 'not_found' }, 404, cors.headers);
 
