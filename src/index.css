@@ -668,3 +668,31 @@ body { background:var(--sonds-surface); color:var(--sonds-text); }
 .theme-preview-card { padding:13px; border-radius:13px; box-shadow:0 5px 14px #00000010; }.theme-preview-card b,.theme-preview-card p { display:block; }.theme-preview-card b { font-size:12px; }.theme-preview-card p { margin:4px 0 9px; font-size:10px; opacity:.75; }.theme-preview-card button,.theme-preview-card span { border:0; border-radius:8px; padding:6px 9px; font-size:9px; font-weight:900; margin-left:5px; }.theme-preview-card span { color:#fff; }.theme-preview-accent { font-size:30px; letter-spacing:5px; }
 .theme-page-presets { margin-top:15px; }
 @media (max-width:700px) { .privacy-cards,.theme-full-fields { grid-template-columns:1fr; }.privacy-hero,.theme-page-hero { padding:22px 19px; }.privacy-hero h2,.theme-page-hero h2 { font-size:25px; }.privacy-hero-lock,.theme-preview-sparkle { font-size:46px; } .theme-full-preview { align-items:stretch; flex-direction:column; } }
+
+
+/* Direct MP3 recitations for adhkar and ruqyah */
+.adhkar-audio-card { display: grid; gap: 13px; padding: 17px; border: 1px solid #e8ddf0; border-radius: 18px; background: linear-gradient(120deg, #fffafd, #f8f6ff 58%, #fff9e9); box-shadow: 0 8px 22px #3d1e5b0b; }
+.adhkar-audio-heading { display: flex; align-items: center; gap: 11px; }
+.adhkar-audio-icon { display: grid; flex: 0 0 42px; width: 42px; height: 42px; place-items: center; border-radius: 14px; background: #eee6ff; color: #7651b6; }
+.adhkar-audio-copy { min-width: 0; }
+.adhkar-audio-copy h3 { margin: 2px 0 1px; color: #392444; font-size: 14px; font-weight: 900; }
+.adhkar-audio-copy p { margin: 0; color: #84788b; font-size: 9px; font-weight: 700; line-height: 1.7; }
+.adhkar-audio-controls { display: grid; grid-template-columns: minmax(180px, .45fr) minmax(0, 1fr); align-items: end; gap: 11px; }
+.adhkar-audio-select { display: grid; gap: 5px; color: #796b80; font-size: 9px; font-weight: 900; }
+.adhkar-audio-select select { width: 100%; min-height: 41px; padding: 7px 10px; border: 1px solid #e3d9e9; border-radius: 10px; background: #fff; color: #45354d; font: inherit; font-size: 11px; }
+.adhkar-audio-select select:focus-visible { outline: 2px solid #d5c5f0; }
+.adhkar-audio-element { display: block; width: 100%; min-width: 0; height: 42px; direction: ltr; }
+.adhkar-audio-state, .adhkar-audio-error, .adhkar-audio-error-message { display: flex; align-items: center; gap: 7px; margin: 0; color: #75677d; font-size: 10px; font-weight: 800; }
+.adhkar-audio-spinner { animation: adhkar-audio-spin 1s linear infinite; }
+@keyframes adhkar-audio-spin { to { transform: rotate(360deg); } }
+.adhkar-audio-error { justify-content: space-between; flex-wrap: wrap; color: #a74b54; }
+.adhkar-audio-error button { display: inline-flex; align-items: center; gap: 5px; min-height: 34px; padding: 0 10px; border: 1px solid #eadfeb; border-radius: 9px; background: #fff; color: #725a80; font: inherit; font-size: 9px; font-weight: 900; }
+.adhkar-audio-error-message { color: #a74b54; }
+.adhkar-audio-attribution { margin: 0; color: #998da0; font-size: 9px; font-weight: 700; line-height: 1.7; }
+.adhkar-audio-attribution a { color: #7651b6; font-weight: 900; }
+@media (max-width: 520px) {
+  .adhkar-audio-card { padding: 13px; border-radius: 15px; }
+  .adhkar-audio-controls { grid-template-columns: 1fr; gap: 8px; }
+  .adhkar-audio-select select { min-height: 39px; }
+  .adhkar-audio-element { height: 40px; }
+}
