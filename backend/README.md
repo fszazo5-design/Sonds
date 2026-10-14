@@ -2,23 +2,24 @@
 
 هذا المجلد يضيف API مزامنة صغيرًا. واجهة React تواصل الحفظ محليًا ما لم يُضبط `VITE_NEON_API_URL` أثناء بناء OTA. لا يُضمَّن `NEON_DATABASE_URL` في React أو APK.
 
-## ما وجدته في حساب Cloudflare الحالي
+## حالة الخدمة المتصلة
 
-يوجد Worker باسم `sonds`، لكن مصدره المنشور هو قالب لوحة Cloudflare الافتراضي الذي يعيد `Hello world`. إعداداته لا تحتوي أي secret أو binding. كما أن `workers.dev` غير مفعّل للعامل نفسه، رغم أن النطاق الفرعي للحساب هو `fszazo5`.
-
-الملف `../wrangler.toml` يجهّز الاسم نفسه `sonds`، ويحدد `workers_dev = true`، فيُفترض أن يظهر بعد النشر العنوان العام `https://sonds.fszazo5.workers.dev`. لم أستبدل العامل المنشور؛ يحتاج النشر إلى الأسرار المحددة أدناه.
+العنوان `https://sonds.fszazo5.workers.dev/health` يجيب `{"ok":true,"databaseConfigured":true}`، وأكد المستخدم أن مشروع Neon وجداوله مربوطان. يبقى `NEON_DATABASE_URL` سرًا خاصًا على Worker/GitHub Actions؛ لا يُضمّن في React أو APK.
 
 ## الملفات
 
-- `worker.mjs`: Cloudflare Worker، فيه `GET /health` و`POST /v1/sync`، ويتصل بـNeon باستخدام `@neondatabase/serverless`.
+- `worker.mjs`: Cloudflare Worker، فيه `GET /health` و`POST /v1/sync` و`GET /v1/media` و`GET /v1/media/:id`، ويتصل بـNeon باستخدام `@neondatabase/serverless`.
 - `server.mjs`: بديل Node.js مستقل، غير لازم لنشر Cloudflare.
 - `migrations/001_create_device_sync.sql`: migration قابل لإعادة التشغيل؛ ينشئ جدولًا جديدًا وفهرسًا ولا يعدّل جداول أخرى.
+- `migrations/004_create_sonds_video_library.sql`: ينشئ جدول مكتبة الفيديوهات بصورة إضافية وآمنة.
+- `video-manifest.json` و`../scripts/import-neon-videos.mjs`: فهرس ورفع تكراري آمن لفيديوهات المستودع إلى Neon.
 - `sync-core.mjs`: تحقق مشترك من بيانات الأجهزة وحجم الخطة.
 - `worker.test.mjs` و`sync-core.test.mjs`: اختبارات لا تحتاج إلى اتصال حقيقي بقاعدة Neon.
 - `.github/workflows/cloudflare-worker.yml`: نشر يدوي بعد تحقق الأسرار وتشغيل الفحوص.
-- `.github/workflows/neon-migrate.yml`: تشغيل يدوي منفصل للـmigration.
+- `.github/workflows/neon-migrate.yml`: تشغيل يدوي لمهاجرات المخطط.
+- `.github/workflows/upload-videos-neon.yml`: إجراء يدوي لتطبيق جدول الفيديوهات ورفع المقاطع الستة والتحقق منها.
 
-الاتصال يستخدم Neon driver عبر HTTP، المناسب لطلبات المزامنة الخفيفة عديمة الحالة. Cloudflare/Neon يوثّقان أيضًا Hyperdrive كخيار pooling للاتصالات ذات الحجم الأكبر؛ لم أُنشئ Hyperdrive أو مستخدم قاعدة بيانات لأن ذلك يحتاج اختيار مشروع Neon وصلاحياته أولًا.
+تستخدم مسارات المزامنة والفيديو Neon driver عبر HTTP؛ ويطلب مشغل الفيديو أجزاءً صغيرة باستخدام `Range` بدل تنزيل كل ملف في كل مرة. رفع الملفات في GitHub Actions يستخدم PostgreSQL client عبر السر الموجود بالفعل. لم يُضف Hyperdrive أو حساب قاعدة بيانات جديد.
 
 ## إعداد GitHub Secrets
 
@@ -30,11 +31,13 @@
 
 لا ترسلي هذه القيم في المحادثة. Worker لا يحتاج أن تضعي عنوان Neon في ملف Wrangler؛ الـworkflow ينقله كـCloudflare Worker secret باسم `NEON_DATABASE_URL` دون طباعته. عنوان الـAPI العام وحده يدخل لاحقًا في build الواجهة.
 
-## اختيار مشروع Neon قبل الـmigration
+## رفع الفيديوهات ونشر API
 
-لم يظهر مشروع Neon باسم `Sonds` أو `sundus`. المشروع الذي يظهر باسم `zazo` يحتوي حاليًا جداول `neon_auth` وجدولًا عامًا باسم `portfolio_content`؛ لم أستخدمه ولم أشغّل عليه migration. اختاري المشروع/الفرع الذي تريدينه من Neon، وخذي connection string لذلك الاختيار، ثم خزّنيه باسم `NEON_DATABASE_URL` في GitHub Secrets. لا تنفّذي الترحيل قبل التأكد من المشروع والفرع المقصودين.
+استخدمي مشروع Neon المرتبط الذي أكّدتِه، واتركي `NEON_DATABASE_URL` في GitHub Actions Secret دون نسخه إلى ملفات الواجهة. بعد دمج التغييرات إلى `main`:
 
-بعد حفظ السر، شغّلي **Actions → Apply Neon migration → Run workflow**. ثم شغّلي **Actions → Deploy Sonds Cloudflare API → Run workflow**. نشر الـWorker Workflow يدوي ولا يُطلق مع كل commit، لتجنب نشر API قبل تجهيز Neon.
+1. شغّلي **Actions → Upload Sundus videos to Neon → Run workflow**. ينشئ الإجراء جدول `public.sonds_video_library` إذا لم يكن موجودًا، ثم يرفع ملفات MP4 الستة ويحدّثها حسب المعرّف دون حذف السجلات الأخرى.
+2. شغّلي **Actions → Deploy Sonds Cloudflare API → Run workflow** لنشر مسارات الفيديو الجديدة بعد تجهيز الجدول.
+3. ينشر دمج الواجهة تلقائيًا حزمة **Publish Android UI OTA to GitHub Releases**؛ افتحي التطبيق بعد اكتمالها ليحمّل التحديث.
 
 ## تفعيل المزامنة في الواجهة بعد نجاح Worker
 
@@ -52,6 +55,8 @@ https://sonds.fszazo5.workers.dev
 npm ci
 npm run backend:test
 npm run worker:test
+npm run media:test
+npm run typecheck
 npm run worker:check
 ```
 

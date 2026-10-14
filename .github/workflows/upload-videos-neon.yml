@@ -1,0 +1,33 @@
+name: Upload Sundus videos to Neon
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sonds-video-import
+  cancel-in-progress: false
+jobs:
+  upload:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies and validate the app
+        run: |
+          npm ci
+          npm run backend:check
+          npm run backend:test
+          npm run worker:test
+          npm run media:test
+          npm run typecheck
+          npm run worker:check
+      - name: Upload video files and verify metadata in Neon
+        env:
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: npm run neon:upload-videos
