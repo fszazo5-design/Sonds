@@ -390,6 +390,8 @@ class MainActivity : Activity() {
 private object GameEndNotification {
     private const val CHANNEL_ID = "game_end_with_audio_v3"
     private const val NOTIFICATION_ID = 4101
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var endSoundSequence = 0
 
     fun ensureChannel(context: android.content.Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -406,7 +408,7 @@ private object GameEndNotification {
 
     fun notify(context: android.content.Context, title: String, body: String) {
         ensureChannel(context)
-        playAndroidGameSound(context)
+        playEndCountdown(context)
         val notificationsAllowed = Build.VERSION.SDK_INT < 33 ||
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         if (!notificationsAllowed) {
@@ -439,6 +441,15 @@ private object GameEndNotification {
             setVolume(1.0f, 1.0f)
             setOnCompletionListener { it.release() }
             start()
+        }
+    }
+
+    private fun playEndCountdown(context: android.content.Context) {
+        val sequence = ++endSoundSequence
+        for (beep in 0 until 5) {
+            mainHandler.postDelayed({
+                if (sequence == endSoundSequence) playAndroidGameSound(context)
+            }, beep * 1_000L)
         }
     }
 }
