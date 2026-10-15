@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Activity, Bell, Check, Trash2, Clock3, Flame, Heart, ImagePlus, Pause, Play, Plus, RotateCcw, Save, Sparkles, Star, Timer, Trophy, X } from 'lucide-react';
 import wallPushupsArt from '../assets/game-wall-pushups.webp';
 import plankArt from '../assets/game-plank.webp';
@@ -89,7 +89,27 @@ export default function ActivityGames({ active, customGames, deletedGameIds, rem
   const [countdown, setCountdown] = useState(0);
   const [completeNotice, setCompleteNotice] = useState('');
   const [savingGame, setSavingGame] = useState(false);
+  const migratedImageIds = useRef(new Set<string>());
   const selected = games.find((game) => game.id === selectedId) ?? null;
+
+  useEffect(() => {
+    if (!neonSyncApiUrl || !syncIdentity) return;
+    const legacyImages = customGames.filter((game) => game.image?.startsWith('data:image/') && !migratedImageIds.current.has(game.id));
+    if (legacyImages.length === 0) return;
+    legacyImages.forEach((game) => migratedImageIds.current.add(game.id));
+    void (async () => {
+      let nextGames = customGames;
+      for (const game of legacyImages) {
+        try {
+          const { imageUrl } = await uploadGameImage(neonSyncApiUrl, syncIdentity, game.id, game.image as string);
+          nextGames = nextGames.map((item) => item.id === game.id ? { ...item, image: imageUrl } : item);
+          onCustomGamesChange(nextGames);
+        } catch {
+          migratedImageIds.current.delete(game.id);
+        }
+      }
+    })();
+  }, [customGames, neonSyncApiUrl, onCustomGamesChange, syncIdentity]);
 
   useEffect(() => {
     if (!running) return undefined;
