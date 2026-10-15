@@ -118,6 +118,26 @@ class MainActivity : Activity() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val url = request.url
                     val isLocalAsset = url.scheme == "https" && url.host == LOCAL_ASSET_HOST
+                    val isGameEndVideoEmbed = url.scheme == "https" &&
+                        url.host in YOUTUBE_EMBED_HOSTS &&
+                        url.path.orEmpty().startsWith("/embed/$GAME_END_VIDEO_ID")
+                    if (!request.isForMainFrame && isGameEndVideoEmbed) {
+                        webView.settings.mediaPlaybackRequiresUserGesture = false
+                        return false
+                    }
+                    val isGameEndVideoLink = url.scheme == "https" && (
+                        (url.host == "youtu.be" && url.lastPathSegment == GAME_END_VIDEO_ID) ||
+                            (url.host == "www.youtube.com" && url.path == "/watch" && url.getQueryParameter("v") == GAME_END_VIDEO_ID)
+                        )
+                    if (request.isForMainFrame && isGameEndVideoLink) {
+                        return try {
+                            startActivity(Intent(Intent.ACTION_VIEW, url))
+                            true
+                        } catch (_: Exception) {
+                            Toast.makeText(this@MainActivity, "تعذّر فتح الفيديو في YouTube", Toast.LENGTH_SHORT).show()
+                            true
+                        }
+                    }
                     return !isLocalAsset
                 }
 
@@ -295,6 +315,8 @@ class MainActivity : Activity() {
         const val LOCAL_ASSET_HOST = "appassets.androidplatform.net"
         const val APP_ASSET_START_URL = "https://appassets.androidplatform.net/assets/www/index.html"
         const val OTA_UI_START_URL = "https://appassets.androidplatform.net/ota/index.html"
+        const val GAME_END_VIDEO_ID = "FEqZw42Qv_k"
+        val YOUTUBE_EMBED_HOSTS = setOf("www.youtube.com", "www.youtube-nocookie.com")
     }
 
     inner class AppBridge {
