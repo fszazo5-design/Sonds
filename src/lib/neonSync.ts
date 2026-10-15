@@ -119,3 +119,28 @@ export function pushNeonEvent(
     occurredAt: new Date().toISOString(),
   });
 }
+
+export async function uploadGameImage(
+  apiUrl: string,
+  identity: LocalSyncIdentity,
+  gameId: string,
+  imageData: string,
+): Promise<{ imageUrl: string }> {
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(() => controller.abort(), 20_000);
+  try {
+    const response = await fetch(`${apiUrl}/v1/game-images`, {
+      method: 'POST',
+      mode: 'cors',
+      credentials: 'omit',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceId: identity.deviceId, deviceSecret: identity.deviceSecret, gameId, imageData }),
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`neon_game_image_http_${response.status}`);
+    return await response.json() as { imageUrl: string };
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
+}

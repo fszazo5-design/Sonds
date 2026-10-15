@@ -87,6 +87,89 @@ function integer(value, fallback = 0) {
   const result = Number(value);
   return Number.isFinite(result) ? Math.round(result) : fallback;
 }
+
+const GAME_IMAGE_MAX_BYTES = 420 * 1024;
+const GAME_ID_PATTERN = /^[A-Za-z0-9_-]{1,120}$/;
+
+function decodeBase64(value) {
+  return Uint8Array.from(atob(value), (character) => character.charCodeAt(0));
+}
+
+async function sha256Hex(value) {
+  const digest = await crypto.subtle.digest('SHA-256', value);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function handleGameImageRequest(request, env, cors, url) {
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+  const sql = getSql(env);
+
+  if (url.pathname === '/v1/game-images') {
+    if (request.method !== 'POST') {
+      cors.set('Allow', 'POST, OPTIONS');
+      return jsonResponse({ error: 'method_not_allowed' }, 405, cors);
+    }
+    if (!String(request.headers.get('Content-Type') ?? '').toLowerCase().startsWith('application/json')) {
+      return jsonResponse({ error: 'content_type_must_be_json' }, 415, cors);
+    }
+    const body = await readJson(request);
+    const { deviceId, secretHash } = await parseIdentity(body);
+    const [authorizedDevice] = await sql`
+      SELECT 1
+      FROM public.sonds_device_sync
+      WHERE device_id = ${deviceId}::uuid AND secret_hash = ${secretHash}
+      LIMIT 1
+    `;
+    if (!authorizedDevice) return jsonResponse({ error: 'device_key_conflict' }, 409, cors);
+    const gameId = text(body.gameId);
+    if (!GAME_ID_PATTERN.test(gameId)) return jsonResponse({ error: 'invalid_game_id' }, 400, cors);
+    const match = /^data:(image\/(?:webp|jpeg|png));base64,([A-Za-z0-9+/=]+)$/.exec(text(body.imageData));
+    if (!match) return jsonResponse({ error: 'invalid_game_image' }, 400, cors);
+    const imageBytes = decodeBase64(match[2]);
+    if (imageBytes.byteLength === 0 || imageBytes.byteLength > GAME_IMAGE_MAX_BYTES) {
+      return jsonResponse({ error: 'game_image_too_large' }, 413, cors);
+    }
+    const imageId = await sha256Hex(new TextEncoder().encode(`${deviceId}:${gameId}`));
+    const sha256 = await sha256Hex(imageBytes);
+    await sql`
+      INSERT INTO public.sonds_game_images (image_id, device_id, game_id, mime_type, byte_size, sha256, image_bytes, updated_at)
+      VALUES (${imageId}, ${deviceId}::uuid, ${gameId}, ${match[1]}, ${imageBytes.byteLength}, ${sha256}, decode(${match[2]}, 'base64'), NOW())
+      ON CONFLICT (device_id, game_id) DO UPDATE SET image_id=EXCLUDED.image_id, mime_type=EXCLUDED.mime_type, byte_size=EXCLUDED.byte_size, sha256=EXCLUDED.sha256, image_bytes=EXCLUDED.image_bytes, updated_at=NOW()
+    `;
+    return jsonResponse({ ok: true, imageUrl: new URL(`/v1/game-images/${imageId}`, url).toString() }, 200, cors);
+  }
+
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    cors.set('Allow', 'GET, HEAD, POST, OPTIONS');
+    return jsonResponse({ error: 'method_not_allowed' }, 405, cors);
+  }
+  const imageId = url.pathname.slice('/v1/game-images/'.length);
+  if (!/^[a-f0-9]{64}$/.test(imageId)) return jsonResponse({ error: 'invalid_game_image_id' }, 400, cors);
+  const [image] = await sql`
+    SELECT mime_type AS "mimeType", byte_size AS "byteSize", sha256
+    FROM public.sonds_game_images
+    WHERE image_id = ${imageId}
+    LIMIT 1
+  `;
+  if (!image) return jsonResponse({ error: 'game_image_not_found' }, 404, cors);
+  const headers = new Headers(cors);
+  headers.set('Content-Type', image.mimeType);
+  headers.set('Content-Length', String(image.byteSize));
+  headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+  headers.set('ETag', `"${image.sha256}"`);
+  headers.set('Content-Disposition', 'inline');
+  if (request.headers.get('If-None-Match') === `"${image.sha256}"`) return new Response(null, { status: 304, headers });
+  if (request.method === 'HEAD') return new Response(null, { status: 200, headers });
+  const [encoded] = await sql`
+    SELECT encode(image_bytes, 'base64') AS data
+    FROM public.sonds_game_images
+    WHERE image_id = ${imageId}
+    LIMIT 1
+  `;
+  if (!encoded?.data) return jsonResponse({ error: 'game_image_data_unavailable' }, 503, cors);
+  return new Response(decodeBase64(encoded.data), { status: 200, headers });
+}
+
 async function saveNormalizedState(sql, deviceId, state) {
   const meals = asArray(state.meals);
   const day = asObject(state.day);
@@ -327,6 +410,15 @@ export default {
         const status = Number.isInteger(error?.statusCode) ? error.statusCode : 503;
         if (status >= 500) console.error('Neon video request failed; verify Worker secret and video table migration.');
         return jsonResponse({ error: status === 503 ? 'media_service_unavailable' : (error?.message ?? 'media_request_failed') }, status, cors.headers);
+      }
+    }
+    if (url.pathname === '/v1/game-images' || url.pathname.startsWith('/v1/game-images/')) {
+      try {
+        return await handleGameImageRequest(request, env, cors.headers, url);
+      } catch (error) {
+        const status = Number.isInteger(error?.statusCode) ? error.statusCode : 503;
+        if (status >= 500) console.error('Neon game image request failed; verify Worker secret and game image migration.');
+        return jsonResponse({ error: status === 503 ? 'game_image_service_unavailable' : (error?.message ?? 'game_image_request_failed') }, status, cors.headers);
       }
     }
     if (url.pathname !== '/v1/sync') return jsonResponse({ error: 'not_found' }, 404, cors.headers);

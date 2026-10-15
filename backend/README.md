@@ -8,10 +8,11 @@
 
 ## الملفات
 
-- `worker.mjs`: Cloudflare Worker، فيه `GET /health` و`POST /v1/sync` و`GET /v1/media` و`GET /v1/media/:id`، ويتصل بـNeon باستخدام `@neondatabase/serverless`.
+- `worker.mjs`: Cloudflare Worker، فيه `GET /health` و`POST /v1/sync` و`GET /v1/media` و`GET /v1/media/:id`، إضافة إلى `POST /v1/game-images` و`GET /v1/game-images/:id` لرفع صور الألعاب إلى Neon وخدمتها كرابط Cloudflare.
 - `server.mjs`: بديل Node.js مستقل، غير لازم لنشر Cloudflare.
 - `migrations/001_create_device_sync.sql`: migration قابل لإعادة التشغيل؛ ينشئ جدولًا جديدًا وفهرسًا ولا يعدّل جداول أخرى.
 - `migrations/004_create_sonds_video_library.sql`: ينشئ جدول مكتبة الفيديوهات بصورة إضافية وآمنة.
+- `migrations/005_create_sonds_game_images.sql`: ينشئ تخزين صور الألعاب خارج حالة JSON؛ حالة اللعبة تحفظ رابط Worker فقط.
 - `video-manifest.json` و`../scripts/import-neon-videos.mjs`: فهرس ورفع تكراري آمن لفيديوهات المستودع إلى Neon.
 - `sync-core.mjs`: تحقق مشترك من بيانات الأجهزة وحجم الخطة.
 - `worker.test.mjs` و`sync-core.test.mjs`: اختبارات لا تحتاج إلى اتصال حقيقي بقاعدة Neon.

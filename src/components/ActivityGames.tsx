@@ -6,6 +6,7 @@ import squatsArt from '../assets/game-squats.webp';
 import danceArt from '../assets/game-dance.webp';
 import stretchArt from '../assets/game-stretch.webp';
 import gameEndSound from '../assets/game-countdown-laufey.mp3';
+import { uploadGameImage, type LocalSyncIdentity } from '../lib/neonSync';
 
 export type CustomActivity = {
   id: string;
@@ -67,9 +68,11 @@ type Props = {
   onComplete: (reps: number) => void;
   onEvent?: (eventName: string, payload?: Record<string, unknown>) => void;
   onCountdownSound?: () => void;
+  neonSyncApiUrl: string | null;
+  syncIdentity: LocalSyncIdentity | null;
 };
 
-export default function ActivityGames({ active, customGames, deletedGameIds, reminders, onRemindersChange, stats, onCustomGamesChange, onDeletedGamesChange, onComplete, onEvent, onCountdownSound }: Props) {
+export default function ActivityGames({ active, customGames, deletedGameIds, reminders, onRemindersChange, stats, onCustomGamesChange, onDeletedGamesChange, onComplete, onEvent, onCountdownSound, neonSyncApiUrl, syncIdentity }: Props) {
   const games: ActivityGame[] = [
     ...starterGames.map((game) => ({ ...game, art: illustrations[game.id] })),
     ...customGames.map((game, index) => ({ ...game, level: 'لعبتك', color: ['rose', 'mint', 'peach', 'lilac', 'sky'][index % 5], icon: '✨' })),
@@ -85,6 +88,7 @@ export default function ActivityGames({ active, customGames, deletedGameIds, rem
   const [running, setRunning] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [completeNotice, setCompleteNotice] = useState('');
+  const [savingGame, setSavingGame] = useState(false);
   const selected = games.find((game) => game.id === selectedId) ?? null;
 
   useEffect(() => {
@@ -147,24 +151,38 @@ export default function ActivityGames({ active, customGames, deletedGameIds, rem
   };
   const reset = () => { setCountdown(0); setRunning(false); setSecondsLeft(selected?.duration ?? 0); setReps(0); setCompleteNotice(''); };
   const openGame = (game: ActivityGame) => { setSelectedId(game.id); setCountdown(0); setRunning(false); setSecondsLeft(game.duration); setReps(0); setCompleteNotice(''); };
-  const saveCustom = () => {
+  const saveCustom = async () => {
     const title = form.title.trim();
     const duration = Number(form.duration);
     if (!title) { setFormError('اكتبي اسم اللعبة.'); return; }
     if (title.length > 100) { setFormError('اسم اللعبة يجب ألا يتجاوز 100 حرف.'); return; }
     if (!Number.isFinite(duration) || duration < 5 || duration > 300) { setFormError('اختاري مدة بين 5 و300 ثانية.'); return; }
+    const gameId = `custom-game-${Date.now()}`;
+    let image = imagePreview || undefined;
+    if (image && neonSyncApiUrl) {
+      if (!syncIdentity) { setFormError('تعذّر الاتصال بالحفظ السحابي، حاولي مرة أخرى.'); return; }
+      setSavingGame(true);
+      try {
+        ({ imageUrl: image } = await uploadGameImage(neonSyncApiUrl, syncIdentity, gameId, image));
+      } catch {
+        setSavingGame(false);
+        setFormError('تعذّر رفع الصورة إلى الحفظ السحابي، حاولي مرة أخرى.');
+        return;
+      }
+      setSavingGame(false);
+    }
     const item: CustomActivity = {
-      id: `custom-game-${Date.now()}`,
+      id: gameId,
       title,
       description: form.description.trim() || 'لعبة حركة من اختيارك',
       instruction: form.instruction.trim() || 'تحركي بالوتيرة التي تناسبك وخذي استراحة عند الحاجة.',
       mode: form.mode,
       duration,
       unit: form.mode === 'hold' ? 'ثانية ثبات' : (form.unit.trim() || 'تكرار'),
-      image: imagePreview || undefined,
+      image,
     };
     onCustomGamesChange([...customGames, item]);
-    onEvent?.('custom_game_created', { gameId: item.id, title: item.title, duration: item.duration, hasImage: Boolean(item.image) });
+    onEvent?.('custom_game_created', { gameId: item.id, title: item.title, duration: item.duration, hasImage: Boolean(item.image), imageStoredInCloud: Boolean(neonSyncApiUrl && image) });
     setShowAddForm(false);
     setForm({ title: '', description: '', instruction: '', mode: 'reps', duration: '30', unit: 'تكرار' });
     setImagePreview('');
@@ -252,7 +270,7 @@ export default function ActivityGames({ active, customGames, deletedGameIds, rem
 
       <p className="games-note"><Activity size={15} /> الألعاب للتشجيع على الحركة وليست نصيحة طبية. يمكنك تعديل أي حركة بما يناسبك.</p>
 
-      {showAddForm && <div className="game-modal-backdrop" role="presentation" onClick={() => setShowAddForm(false)}><section className="game-dialog" role="dialog" aria-modal="true" aria-labelledby="add-game-title" onClick={(event) => event.stopPropagation()}><button className="game-dialog-close" type="button" onClick={() => setShowAddForm(false)} aria-label="إغلاق"><X size={18} /></button><div className="game-dialog-heading"><span><Plus size={22} /></span><div><small>مساحة خاصة لكِ</small><h3 id="add-game-title">إضافة لعبة يدوية</h3></div></div><div className="game-form"><label>اسم اللعبة<input autoFocus value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="مثال: مشي في المكان" /></label><label>وصف قصير<input value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="حركة خفيفة وممتعة" /></label><label className="game-image-field"><span>صورة اللعبة <small>(اختياري، حتى 2 ميجابايت)</small></span><input type="file" accept="image/*" onChange={(event) => chooseImage(event.target.files?.[0])} />{imagePreview && <img className="game-image-preview" src={imagePreview} alt="معاينة صورة اللعبة" />}<ImagePlus size={18} /></label><label>طريقة اللعب<select value={form.mode} onChange={(event) => setForm({ ...form, mode: event.target.value as 'reps' | 'hold' })}><option value="reps">عدّ الحركات بالضغط</option><option value="hold">تحدي ثبات بالوقت</option></select></label><label>مدة الجولة بالثواني<input type="number" min="5" max="300" value={form.duration} onChange={(event) => setForm({ ...form, duration: event.target.value })} /></label>{form.mode === 'reps' && <label>اسم الحركة في العداد<input value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} placeholder="تكرار" /></label>}<label className="game-form-wide">تعليمات اللعبة<textarea rows={3} value={form.instruction} onChange={(event) => setForm({ ...form, instruction: event.target.value })} placeholder="اكتبي طريقة اللعب أو اتركيها فارغة للتعليمات الافتراضية" /></label></div>{formError && <p className="game-form-error" role="alert">{formError}</p>}<div className="game-dialog-actions"><button type="button" className="game-save-button" onClick={saveCustom}><Save size={16} /> حفظ اللعبة</button><button type="button" className="game-cancel-button" onClick={() => setShowAddForm(false)}>إلغاء</button></div></section></div>}
+      {showAddForm && <div className="game-modal-backdrop" role="presentation" onClick={() => setShowAddForm(false)}><section className="game-dialog" role="dialog" aria-modal="true" aria-labelledby="add-game-title" onClick={(event) => event.stopPropagation()}><button className="game-dialog-close" type="button" onClick={() => setShowAddForm(false)} aria-label="إغلاق"><X size={18} /></button><div className="game-dialog-heading"><span><Plus size={22} /></span><div><small>مساحة خاصة لكِ</small><h3 id="add-game-title">إضافة لعبة يدوية</h3></div></div><div className="game-form"><label>اسم اللعبة<input autoFocus value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="مثال: مشي في المكان" /></label><label>وصف قصير<input value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="حركة خفيفة وممتعة" /></label><label className="game-image-field"><span>صورة اللعبة <small>(اختياري، حتى 2 ميجابايت)</small></span><input type="file" accept="image/*" onChange={(event) => chooseImage(event.target.files?.[0])} />{imagePreview && <img className="game-image-preview" src={imagePreview} alt="معاينة صورة اللعبة" />}<ImagePlus size={18} /></label><label>طريقة اللعب<select value={form.mode} onChange={(event) => setForm({ ...form, mode: event.target.value as 'reps' | 'hold' })}><option value="reps">عدّ الحركات بالضغط</option><option value="hold">تحدي ثبات بالوقت</option></select></label><label>مدة الجولة بالثواني<input type="number" min="5" max="300" value={form.duration} onChange={(event) => setForm({ ...form, duration: event.target.value })} /></label>{form.mode === 'reps' && <label>اسم الحركة في العداد<input value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} placeholder="تكرار" /></label>}<label className="game-form-wide">تعليمات اللعبة<textarea rows={3} value={form.instruction} onChange={(event) => setForm({ ...form, instruction: event.target.value })} placeholder="اكتبي طريقة اللعب أو اتركيها فارغة للتعليمات الافتراضية" /></label></div>{formError && <p className="game-form-error" role="alert">{formError}</p>}<div className="game-dialog-actions"><button type="button" className="game-save-button" disabled={savingGame} onClick={saveCustom}><Save size={16} /> {savingGame ? 'جارٍ رفع الصورة...' : 'حفظ اللعبة'}</button><button type="button" className="game-cancel-button" onClick={() => setShowAddForm(false)}>إلغاء</button></div></section></div>}
 
       {selected && <div className="game-modal-backdrop" role="presentation" onClick={() => { setCountdown(0); setRunning(false); setSelectedId(null); }}><section className="game-dialog game-play-dialog" role="dialog" aria-modal="true" aria-labelledby="selected-game-title" onClick={(event) => event.stopPropagation()}><button className="game-dialog-close" type="button" onClick={() => { setCountdown(0); setRunning(false); setSelectedId(null); }} aria-label="إغلاق اللعبة"><X size={18} /></button><div className="game-dialog-heading"><span className="selected-game-emoji">{selected.icon}</span><div><small>{selected.level} · {selected.mode === 'hold' ? 'تحدي ثبات' : 'تحدي حركة'}</small><h3 id="selected-game-title">{selected.title}</h3></div></div>{selected.image && <img className="game-selected-image" src={selected.image} alt={`صورة ${selected.title}`} />}<p className="game-instruction">{selected.instruction}</p>{countdown > 0 && <div className="game-start-countdown" role="status" aria-live="assertive"><span>استعدّي يا سندس</span><strong>{fmt(countdown)}</strong><small>تبدأ الجولة مع آخر نغمة</small></div>}<div className={`game-clock-panel ${countdown > 0 ? 'game-clock-waiting' : ''}`}><Timer size={19} /><strong role="timer">{clock(secondsLeft)}</strong>{selected.mode === 'reps' && <span className="game-rep-count">{fmt(reps)} <small>{selected.unit}</small></span>}</div><div className="game-timer-progress"><span style={{ width: `${selected.duration ? ((selected.duration - secondsLeft) / selected.duration) * 100 : 0}%` }} /></div>{selected.mode === 'reps' && <button type="button" className="game-rep-button" disabled={!running} onClick={() => setReps((count) => count + 1)}><Check size={20} /> سجّلي {selected.unit === 'ضغطة' ? 'ضغطة' : selected.unit === 'خطوة' ? 'خطوة' : 'تكرارًا'}</button>}{completeNotice && <p className="game-complete-message" role="status"><Sparkles size={17} /> {completeNotice}</p>}<div className="game-dialog-actions"><button type="button" className="game-save-button" disabled={countdown > 0} onClick={start}>{running ? <Pause size={16} /> : <Play size={16} fill="currentColor" />}{running ? 'إيقاف مؤقت' : countdown > 0 ? 'استعدّي...' : secondsLeft > 0 && secondsLeft < selected.duration ? 'استئناف' : 'ابدئي الجولة'}</button><button type="button" className="game-cancel-button" onClick={reset}><RotateCcw size={16} /> إعادة</button></div></section></div>}
     </section>

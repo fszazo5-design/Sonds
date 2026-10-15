@@ -669,7 +669,7 @@ function App() {
         {mealSaveNotice && <p className="meal-save-notice" role="status" aria-live="polite">{mealSaveNotice}</p>}
       </section>
 
-      <ActivityGames active={activeNav === 'games'} customGames={customActivities} deletedGameIds={deletedGameIds} reminders={gameReminders} onRemindersChange={setGameReminders} stats={activityGameStats} onCustomGamesChange={setCustomActivities} onDeletedGamesChange={setDeletedGameIds} onComplete={recordActivityGame} onEvent={recordCloudEvent} onCountdownSound={handleGameCountdownSound} />
+      <ActivityGames active={activeNav === 'games'} customGames={customActivities} deletedGameIds={deletedGameIds} reminders={gameReminders} onRemindersChange={setGameReminders} stats={activityGameStats} onCustomGamesChange={setCustomActivities} onDeletedGamesChange={setDeletedGameIds} onComplete={recordActivityGame} onEvent={recordCloudEvent} onCountdownSound={handleGameCountdownSound} neonSyncApiUrl={neonSyncApiUrl} syncIdentity={syncIdentity} />
 
       <section hidden={activeNav !== 'trophy' && activeNav !== 'menu'} className="bottom-grid single-panel">
         <div hidden={activeNav !== 'trophy'} className="reward-card">
