@@ -138,7 +138,16 @@ export async function uploadGameImage(
       body: JSON.stringify({ deviceId: identity.deviceId, deviceSecret: identity.deviceSecret, gameId, imageData }),
       signal: controller.signal,
     });
-    if (!response.ok) throw new Error(`neon_game_image_http_${response.status}`);
+    if (!response.ok) {
+      let detail = '';
+      try {
+        const payload = await response.json() as { error?: string };
+        detail = typeof payload.error === 'string' ? `_${payload.error}` : '';
+      } catch {
+        // Keep the HTTP status when the Worker returns a non-JSON error.
+      }
+      throw new Error(`neon_game_image_http_${response.status}${detail}`);
+    }
     return await response.json() as { imageUrl: string };
   } finally {
     globalThis.clearTimeout(timeout);

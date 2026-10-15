@@ -106,10 +106,12 @@ async function sha1Hex(value) {
 }
 
 function getCloudinaryConfig(env) {
-  if (!env.CLOUDINARY_URL) throw makeError('cloudinary_not_configured', 503);
+  // CLOUDINARY_URL هو الاسم الصحيح؛ نقبل الاسم القديم مؤقتاً حتى لا تتعطل الإصدارات الحالية.
+  const cloudinaryUrl = env.CLOUDINARY_URL || env.CLOUDINARY_UPLOAD_PRESET;
+  if (!cloudinaryUrl) throw makeError('cloudinary_not_configured', 503);
   let parsed;
   try {
-    parsed = new URL(env.CLOUDINARY_URL);
+    parsed = new URL(cloudinaryUrl);
   } catch {
     throw makeError('cloudinary_configuration_invalid', 503);
   }
@@ -459,7 +461,7 @@ export default {
       } catch (error) {
         const status = Number.isInteger(error?.statusCode) ? error.statusCode : 503;
         if (status >= 500) console.error('Neon game image request failed; verify Worker secret and game image migration.');
-        return jsonResponse({ error: status === 503 ? 'game_image_service_unavailable' : (error?.message ?? 'game_image_request_failed') }, status, cors.headers);
+        return jsonResponse({ error: error?.message ?? (status === 503 ? 'game_image_service_unavailable' : 'game_image_request_failed') }, status, cors.headers);
       }
     }
     if (url.pathname !== '/v1/sync') return jsonResponse({ error: 'not_found' }, 404, cors.headers);
