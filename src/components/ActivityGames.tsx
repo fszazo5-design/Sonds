@@ -66,146 +66,6 @@ const imageUploadError = (error: unknown): string => {
   return 'تعذّر رفع الصورة إلى الحفظ السحابي، حاولي مرة أخرى.';
 };
 
-type YouTubePlayerInstance = {
-  setVolume: (volume: number) => void;
-  unMute: () => void;
-  playVideo: () => void;
-  seekTo: (seconds: number, allowSeekAhead: boolean) => void;
-  destroy: () => void;
-  getIframe: () => HTMLIFrameElement;
-};
-type YouTubePlayerEvent = { target: YouTubePlayerInstance; data?: number };
-type YouTubeWindow = Window & {
-  YT?: { Player: new (element: HTMLElement, options: Record<string, unknown>) => YouTubePlayerInstance };
-  onYouTubeIframeAPIReady?: () => void;
-};
-
-let youtubeApiPromise: Promise<void> | null = null;
-const loadYouTubeIframeApi = (): Promise<void> => {
-  const youtubeWindow = window as YouTubeWindow;
-  if (youtubeWindow.YT?.Player) return Promise.resolve();
-  if (youtubeApiPromise) return youtubeApiPromise;
-
-  youtubeApiPromise = new Promise<void>((resolve, reject) => {
-    const script = document.querySelector<HTMLScriptElement>('script[data-youtube-iframe-api]') ?? document.createElement('script');
-    const timeout = window.setTimeout(() => reject(new Error('youtube_iframe_api_timeout')), 15_000);
-    const previousReady = youtubeWindow.onYouTubeIframeAPIReady;
-    youtubeWindow.onYouTubeIframeAPIReady = () => {
-      previousReady?.();
-      window.clearTimeout(timeout);
-      resolve();
-    };
-    script.addEventListener('error', () => {
-      window.clearTimeout(timeout);
-      reject(new Error('youtube_iframe_api_failed'));
-    }, { once: true });
-    if (!script.src) {
-      script.dataset.youtubeIframeApi = 'true';
-      script.src = 'https://www.youtube.com/iframe_api';
-      script.async = true;
-      document.head.appendChild(script);
-    }
-  }).catch((error: unknown) => {
-    youtubeApiPromise = null;
-    throw error;
-  });
-  return youtubeApiPromise;
-};
-
-const playLocalGameEndSound = () => {
-  try {
-    if (window.AndroidBridge?.playGameEndSound) {
-      window.AndroidBridge.playGameEndSound();
-      return;
-    }
-    const audio = new Audio(gameEndSound);
-    audio.volume = 1;
-    void audio.play().catch(() => undefined);
-  } catch {
-    // يظل زر التشغيل اليدوي متاحًا حتى إذا تعذّر صوت التنبيه القصير.
-  }
-};
-
-function GameEndVideo({ onClose }: { onClose: () => void }) {
-  const playerHostRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<YouTubePlayerInstance | null>(null);
-  const [playbackState, setPlaybackState] = useState<'loading' | 'playing' | 'blocked' | 'error'>('loading');
-
-  useEffect(() => {
-    let cancelled = false;
-    void loadYouTubeIframeApi().then(() => {
-      if (cancelled || !playerHostRef.current) return;
-      const youtubeWindow = window as YouTubeWindow;
-      if (!youtubeWindow.YT?.Player) throw new Error('youtube_iframe_api_unavailable');
-      playerRef.current = new youtubeWindow.YT.Player(playerHostRef.current, {
-        width: '480',
-        height: '270',
-        videoId: 'FEqZw42Qv_k',
-        playerVars: {
-          autoplay: 1,
-          controls: 1,
-          enablejsapi: 1,
-          modestbranding: 1,
-          playsinline: 1,
-          rel: 0,
-          origin: window.location.origin,
-          widget_referrer: window.location.href,
-        },
-        events: {
-          onReady: (event: YouTubePlayerEvent) => {
-            const iframe = event.target.getIframe();
-            iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; web-share');
-            iframe.referrerPolicy = 'strict-origin-when-cross-origin';
-            event.target.setVolume(100);
-            event.target.unMute();
-            event.target.seekTo(0, true);
-            event.target.playVideo();
-          },
-          onStateChange: (event: YouTubePlayerEvent) => {
-            if (event.data === 1) setPlaybackState('playing');
-          },
-          onAutoplayBlocked: () => {
-            setPlaybackState('blocked');
-            playLocalGameEndSound();
-          },
-          onError: () => {
-            setPlaybackState('error');
-            playLocalGameEndSound();
-          },
-        },
-      });
-    }).catch(() => {
-      if (cancelled) return;
-      setPlaybackState('error');
-      playLocalGameEndSound();
-    });
-
-    return () => {
-      cancelled = true;
-      playerRef.current?.destroy();
-      playerRef.current = null;
-    };
-  }, []);
-
-  const playFromTap = () => {
-    const player = playerRef.current;
-    if (!player) return;
-    setPlaybackState('loading');
-    player.setVolume(100);
-    player.unMute();
-    player.seekTo(0, true);
-    player.playVideo();
-  };
-
-  return <section className="game-end-video" aria-label="فيديو تهنئة نهاية الجولة">
-    <div className="game-end-video-heading"><div><strong>فيديو نهاية الجولة</strong><small>{playbackState === 'playing' ? 'الصوت مضبوط على 100٪' : playbackState === 'blocked' ? 'الجهاز منع التشغيل التلقائي؛ اضغطي تشغيل' : playbackState === 'error' ? 'تعذّر تحميل المشغّل' : 'جارٍ تشغيل المقطع بصوت مرتفع…'}</small></div><button type="button" onClick={onClose}>إخفاء</button></div>
-    <div className="game-end-video-frame"><div className="game-end-video-host" ref={playerHostRef} /></div>
-    {playbackState !== 'playing' && <button type="button" className="game-end-video-play" onClick={playFromTap}>تشغيل المقطع بصوت 100٪</button>}
-    <a className="game-end-video-link" href="https://youtu.be/FEqZw42Qv_k">فتح الفيديو في YouTube</a>
-    <small className="game-end-video-note">إذا كان صوت الهاتف منخفضًا، ارفعي مستوى صوت الوسائط من أزرار الجهاز.</small>
-  </section>;
-}
-
 type Props = {
   active: boolean;
   customGames: CustomActivity[];
@@ -238,7 +98,6 @@ export default function ActivityGames({ active, customGames, deletedGameIds, rem
   const [running, setRunning] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [completeNotice, setCompleteNotice] = useState('');
-  const [celebrationActive, setCelebrationActive] = useState(false);
   const [savingGame, setSavingGame] = useState(false);
   const [deletingGameId, setDeletingGameId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState('');
@@ -274,13 +133,23 @@ export default function ActivityGames({ active, customGames, deletedGameIds, rem
     if (!running || secondsLeft !== 0) return;
     setRunning(false);
     setCompleteNotice(`انتهت الجولة! أحسنتِ، سجلتِ ${fmt(reps)} ${selected?.unit ?? 'تكرار'}.`);
-    setCelebrationActive(true);
     onComplete(reps);
     onEvent?.('activity_game_completed', { gameId: selected?.id ?? 'unknown', gameTitle: selected?.title ?? 'لعبة', reps, durationSeconds: selected?.duration ?? 0 });
   }, [onComplete, onEvent, reps, running, secondsLeft, selected?.duration, selected?.id, selected?.title, selected?.unit]);
 
   useEffect(() => {
     if (!running || secondsLeft !== 0 || !selected) return;
+    try {
+      if (window.AndroidBridge?.playGameEndSound) {
+        window.AndroidBridge.playGameEndSound();
+      } else {
+        const audio = new Audio(gameEndSound);
+        audio.volume = 1;
+        void audio.play();
+      }
+    } catch {
+      // تظهر الرسالة داخل صفحة اللعب حتى لو منع المتصفح تشغيل الصوت.
+    }
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       new Notification(`انتهت جولة ${selected.title}`, { body: `أحسنتِ! سجلتِ ${fmt(reps)} ${selected.unit}.` });
     }
@@ -309,11 +178,11 @@ export default function ActivityGames({ active, customGames, deletedGameIds, rem
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       void Notification.requestPermission();
     }
-    if (secondsLeft <= 0) { setSecondsLeft(selected.duration); setReps(0); setCompleteNotice(''); setCelebrationActive(false); }
+    if (secondsLeft <= 0) { setSecondsLeft(selected.duration); setReps(0); setCompleteNotice(''); }
     setCountdown(3);
   };
-  const reset = () => { setCountdown(0); setRunning(false); setSecondsLeft(selected?.duration ?? 0); setReps(0); setCompleteNotice(''); setCelebrationActive(false); };
-  const openGame = (game: ActivityGame) => { setSelectedId(game.id); setCountdown(0); setRunning(false); setSecondsLeft(game.duration); setReps(0); setCompleteNotice(''); setCelebrationActive(false); };
+  const reset = () => { setCountdown(0); setRunning(false); setSecondsLeft(selected?.duration ?? 0); setReps(0); setCompleteNotice(''); };
+  const openGame = (game: ActivityGame) => { setSelectedId(game.id); setCountdown(0); setRunning(false); setSecondsLeft(game.duration); setReps(0); setCompleteNotice(''); };
   const saveCustom = async () => {
     const title = form.title.trim();
     const duration = Number(form.duration);
@@ -453,7 +322,6 @@ export default function ActivityGames({ active, customGames, deletedGameIds, rem
       {showAddForm && <div className="game-modal-backdrop" role="presentation" onClick={() => setShowAddForm(false)}><section className="game-dialog" role="dialog" aria-modal="true" aria-labelledby="add-game-title" onClick={(event) => event.stopPropagation()}><button className="game-dialog-close" type="button" onClick={() => setShowAddForm(false)} aria-label="إغلاق"><X size={18} /></button><div className="game-dialog-heading"><span><Plus size={22} /></span><div><small>مساحة خاصة لكِ</small><h3 id="add-game-title">إضافة لعبة يدوية</h3></div></div><div className="game-form"><label>اسم اللعبة<input autoFocus value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="مثال: مشي في المكان" /></label><label>وصف قصير<input value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="حركة خفيفة وممتعة" /></label><label className="game-image-field"><span>صورة اللعبة <small>(اختياري، حتى 2 ميجابايت)</small></span><input type="file" accept="image/*" onChange={(event) => chooseImage(event.target.files?.[0])} />{imagePreview && <img className="game-image-preview" src={imagePreview} alt="معاينة صورة اللعبة" />}<ImagePlus size={18} /></label><label>طريقة اللعب<select value={form.mode} onChange={(event) => setForm({ ...form, mode: event.target.value as 'reps' | 'hold' })}><option value="reps">عدّ الحركات بالضغط</option><option value="hold">تحدي ثبات بالوقت</option></select></label><label>مدة الجولة بالثواني<input type="number" min="5" max="300" value={form.duration} onChange={(event) => setForm({ ...form, duration: event.target.value })} /></label>{form.mode === 'reps' && <label>اسم الحركة في العداد<input value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} placeholder="تكرار" /></label>}<label className="game-form-wide">تعليمات اللعبة<textarea rows={3} value={form.instruction} onChange={(event) => setForm({ ...form, instruction: event.target.value })} placeholder="اكتبي طريقة اللعب أو اتركيها فارغة للتعليمات الافتراضية" /></label></div>{formError && <p className="game-form-error" role="alert">{formError}</p>}<div className="game-dialog-actions"><button type="button" className="game-save-button" disabled={savingGame} onClick={saveCustom}><Save size={16} /> {savingGame ? 'جارٍ رفع الصورة...' : 'حفظ اللعبة'}</button><button type="button" className="game-cancel-button" onClick={() => setShowAddForm(false)}>إلغاء</button></div></section></div>}
 
       {selected && <div className="game-modal-backdrop" role="presentation" onClick={() => { setCountdown(0); setRunning(false); setSelectedId(null); }}><section className="game-dialog game-play-dialog" role="dialog" aria-modal="true" aria-labelledby="selected-game-title" onClick={(event) => event.stopPropagation()}><button className="game-dialog-close" type="button" onClick={() => { setCountdown(0); setRunning(false); setSelectedId(null); }} aria-label="إغلاق اللعبة"><X size={18} /></button><div className="game-dialog-heading"><span className="selected-game-emoji">{selected.icon}</span><div><small>{selected.level} · {selected.mode === 'hold' ? 'تحدي ثبات' : 'تحدي حركة'}</small><h3 id="selected-game-title">{selected.title}</h3></div></div>{selected.image && <img className="game-selected-image" src={selected.image} alt={`صورة ${selected.title}`} />}<p className="game-instruction">{selected.instruction}</p>{countdown > 0 && <div className="game-start-countdown" role="status" aria-live="assertive"><span>استعدّي يا سندس</span><strong>{fmt(countdown)}</strong><small>تبدأ الجولة مع آخر نغمة</small></div>}<div className={`game-clock-panel ${countdown > 0 ? 'game-clock-waiting' : ''}`}><Timer size={19} /><strong role="timer">{clock(secondsLeft)}</strong>{selected.mode === 'reps' && <span className="game-rep-count">{fmt(reps)} <small>{selected.unit}</small></span>}</div><div className="game-timer-progress"><span style={{ width: `${selected.duration ? ((selected.duration - secondsLeft) / selected.duration) * 100 : 0}%` }} /></div>{selected.mode === 'reps' && <button type="button" className="game-rep-button" disabled={!running} onClick={() => setReps((count) => count + 1)}><Check size={20} /> سجّلي {selected.unit === 'ضغطة' ? 'ضغطة' : selected.unit === 'خطوة' ? 'خطوة' : 'تكرارًا'}</button>}{completeNotice && <p className="game-complete-message" role="status"><Sparkles size={17} /> {completeNotice}</p>}<div className="game-dialog-actions"><button type="button" className="game-save-button" disabled={countdown > 0} onClick={start}>{running ? <Pause size={16} /> : <Play size={16} fill="currentColor" />}{running ? 'إيقاف مؤقت' : countdown > 0 ? 'استعدّي...' : secondsLeft > 0 && secondsLeft < selected.duration ? 'استئناف' : 'ابدئي الجولة'}</button><button type="button" className="game-cancel-button" onClick={reset}><RotateCcw size={16} /> إعادة</button></div></section></div>}
-      {selected && celebrationActive && <div className="game-modal-backdrop game-end-video-backdrop" role="presentation" onClick={() => setCelebrationActive(false)}><section className="game-dialog game-end-video-dialog" role="dialog" aria-modal="true" aria-label="فيديو تهنئة نهاية الجولة" onClick={(event) => event.stopPropagation()}><GameEndVideo onClose={() => setCelebrationActive(false)} /></section></div>}
     </section>
   );
 }
