@@ -191,9 +191,16 @@ export default function ActivityGames({ active, customGames, deletedGameIds, rem
 
   useEffect(() => {
     if (!running || secondsLeft !== 0 || !selected) return;
-    playGameEndRingtone(gameEndAudioRef.current, () => setGameEndAudioBlocked(true), () => setGameEndAudioBlocked(false));
-    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      new Notification(`انتهت جولة ${selected.title}`, { body: `أحسنتِ! سجلتِ ${fmt(reps)} ${selected.unit}.` });
+    const title = `انتهت جولة ${selected.title}`;
+    const body = `أحسنتِ! سجلتِ ${fmt(reps)} ${selected.unit}.`;
+    if (window.AndroidBridge?.notifyGameEnd) {
+      window.AndroidBridge.notifyGameEnd(title, body);
+      setGameEndAudioBlocked(false);
+    } else {
+      playGameEndRingtone(gameEndAudioRef.current, () => setGameEndAudioBlocked(true), () => setGameEndAudioBlocked(false));
+    }
+    if (!window.AndroidBridge?.notifyGameEnd && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      new Notification(title, { body });
     }
   }, [running, secondsLeft, selected, reps]);
 

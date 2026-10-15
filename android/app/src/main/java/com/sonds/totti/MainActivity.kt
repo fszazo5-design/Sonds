@@ -3,6 +3,9 @@ package com.sonds.totti
 import android.Manifest
 import android.app.Activity
 import android.app.AlarmManager
+import android.app.Notification
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -48,6 +51,7 @@ class MainActivity : Activity() {
 
         database = PlanDatabase(this)
         MealAlarmScheduler.ensureChannel(this)
+        GameEndNotification.ensureChannel(this)
         MealAlarmScheduler(this).scheduleAll()
         appUpdater = AppUpdater(this)
         appUpdater.registerReceiver()
@@ -299,10 +303,15 @@ class MainActivity : Activity() {
 
     inner class AppBridge {
         @JavascriptInterface
-        fun playGameCountdownSound() = playGameSound(0.72f)
+        fun playGameCountdownSound() = playGameSound(0.72f, R.raw.game_countdown_laufey)
 
         @JavascriptInterface
-        fun playGameEndSound() = playGameSound(1.0f)
+        fun playGameEndSound() = playGameSound(1.0f, R.raw.game_end_ringtone)
+
+        @JavascriptInterface
+        fun notifyGameEnd(title: String, body: String) = runOnUiThread {
+            GameEndNotification.notify(this@MainActivity, title, body)
+        }
 
         @JavascriptInterface
         fun speakArabic(text: String) = runOnUiThread {
@@ -313,9 +322,9 @@ class MainActivity : Activity() {
         @JavascriptInterface
         fun stopSpeech() = runOnUiThread { textToSpeech?.stop() }
 
-        private fun playGameSound(volume: Float) = runOnUiThread {
+        private fun playGameSound(volume: Float, soundResource: Int) = runOnUiThread {
             countdownPlayer?.release()
-            countdownPlayer = MediaPlayer.create(this@MainActivity, R.raw.game_countdown_laufey)?.apply {
+            countdownPlayer = MediaPlayer.create(this@MainActivity, soundResource)?.apply {
                 setVolume(volume, volume)
                 setOnCompletionListener {
                     if (countdownPlayer === this) countdownPlayer = null
@@ -374,6 +383,67 @@ class MainActivity : Activity() {
             } else {
                 requestPermissions(arrayOf(permission), requestCode)
             }
+        }
+    }
+}
+
+private object GameEndNotification {
+    private const val CHANNEL_ID = "game_end_with_audio_v1"
+    private const val NOTIFICATION_ID = 4101
+
+    fun ensureChannel(context: android.content.Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val soundUri = Uri.parse("android.resource://${context.packageName}/${R.raw.game_end_ringtone}")
+        val audioAttributes = android.media.AudioAttributes.Builder()
+            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        val channel = android.app.NotificationChannel(
+            CHANNEL_ID, "انتهاء جولة اللعب", NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "تنبيه صوتي عند انتهاء عدّاد جولة اللعب"
+            setSound(soundUri, audioAttributes)
+            enableVibration(true)
+        }
+        manager.createNotificationChannel(channel)
+    }
+
+    fun notify(context: android.content.Context, title: String, body: String) {
+        ensureChannel(context)
+        val notificationsAllowed = Build.VERSION.SDK_INT < 33 ||
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        if (!notificationsAllowed) {
+            playFallbackSound(context)
+            return
+        }
+        val openApp = PendingIntent.getActivity(
+            context, NOTIFICATION_ID, Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(context, CHANNEL_ID)
+        } else {
+            Notification.Builder(context)
+                .setSound(Uri.parse("android.resource://${context.packageName}/${R.raw.game_end_ringtone}"))
+        }
+        val notification = builder
+            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+            .setContentTitle(title.take(120))
+            .setContentText(body.take(240))
+            .setAutoCancel(true)
+            .setContentIntent(openApp)
+            .setCategory(Notification.CATEGORY_EVENT)
+            .setOnlyAlertOnce(false)
+            .build()
+        context.getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification)
+    }
+
+    private fun playFallbackSound(context: android.content.Context) {
+        MediaPlayer.create(context, R.raw.game_end_ringtone)?.apply {
+            setVolume(1.0f, 1.0f)
+            setOnCompletionListener { it.release() }
+            start()
         }
     }
 }
