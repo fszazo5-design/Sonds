@@ -55,7 +55,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          printf '%s' "$NEON_DATABASE_URL" | npx wrangler secret put NEON_DATABASE_URL --config wrangler.toml
+          printf '%s' "$NEON_DATABASE_URL" | npx wrangler versions secret put NEON_DATABASE_URL --config wrangler.toml
 
       - name: Deploy Worker to Cloudflare
         uses: cloudflare/wrangler-action@v4
