@@ -68,6 +68,19 @@ test('video API requires a configured Neon connection before querying video data
   assert.equal(method.status, 405);
 });
 
+test('game-end ringtone endpoint supports preflight and requires Neon before streaming', async () => {
+  const options = await worker.fetch(request('/v1/game-end-ringtone', { method: 'OPTIONS' }), {});
+  assert.equal(options.status, 204);
+  assert.equal(options.headers.get('Access-Control-Allow-Methods'), 'GET, HEAD, POST, DELETE, OPTIONS');
+
+  const missingNeon = await worker.fetch(request('/v1/game-end-ringtone'), {});
+  assert.equal(missingNeon.status, 503);
+  assert.deepEqual(await missingNeon.json(), { error: 'game_end_ringtone_service_unavailable' });
+
+  const method = await worker.fetch(request('/v1/game-end-ringtone', { method: 'POST' }), {});
+  assert.equal(method.status, 405);
+});
+
 test('game-image deletion route is available only through the configured server-side Neon connection', async () => {
   const response = await worker.fetch(request('/v1/game-images/custom-game-123', {
     method: 'DELETE',

@@ -8,11 +8,13 @@
 
 ## الملفات
 
-- `worker.mjs`: Cloudflare Worker، فيه `GET /health` و`POST /v1/sync` و`GET /v1/media` و`GET /v1/media/:id`، إضافة إلى `POST /v1/game-images` لرفع صور الألعاب إلى Cloudinary، و`DELETE /v1/game-images/:gameId` لحذف أصل الصورة ومسح رابطها وبايتاتها القديمة من Neon بعد التحقق من هوية الجهاز.
+- `worker.mjs`: Cloudflare Worker، فيه `GET /health` و`POST /v1/sync` و`GET /v1/media` و`GET /v1/media/:id`، و`GET /v1/game-end-ringtone` لبث رنة نهاية الجولة من Neon مع دعم Range، إضافة إلى رفع وحذف صور الألعاب عبر Cloudinary.
 - `server.mjs`: بديل Node.js مستقل، غير لازم لنشر Cloudflare.
 - `migrations/001_create_device_sync.sql`: migration قابل لإعادة التشغيل؛ ينشئ جدولًا جديدًا وفهرسًا ولا يعدّل جداول أخرى.
 - `migrations/004_create_sonds_video_library.sql`: ينشئ جدول مكتبة الفيديوهات بصورة إضافية وآمنة.
 - `migrations/005_create_sonds_game_images.sql`: ترحيل سابق لتخزين الصور داخل Neon؛ الرفع الحالي يستخدم Cloudinary ولا يضيف بايتات جديدة إلى Neon، ومسار الحذف ينظف أي صف قديم للصورة.
+- `migrations/006_create_sonds_audio_assets.sql`: ينشئ مخزنًا صغيرًا لصوت نهاية اللعبة، يحتفظ بنسخة MP3 وبعنوان Cloudinary وبصمة SHA-256.
+- `scripts/upload-game-end-audio.mjs`: يرفع ملف MP3 إلى Cloudinary ويحدث صف نغمة اللعبة في Neon عبر إجراء GitHub Actions يدوي.
 - `video-manifest.json` و`../scripts/import-neon-videos.mjs`: فهرس ورفع تكراري آمن لفيديوهات المستودع إلى Neon.
 - `sync-core.mjs`: تحقق مشترك من بيانات الأجهزة وحجم الخطة.
 - `worker.test.mjs` و`sync-core.test.mjs`: اختبارات لا تحتاج إلى اتصال حقيقي بقاعدة Neon.

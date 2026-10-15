@@ -1,0 +1,36 @@
+name: Upload game end audio to Cloudinary and Neon
+on:
+  workflow_dispatch:
+    inputs:
+      audio_url:
+        description: Temporary HTTPS URL for the supplied MP3 file
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: sonds-game-end-audio-upload
+  cancel-in-progress: false
+jobs:
+  upload:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install project dependencies
+        run: npm ci
+      - name: Upload MP3 and save the Cloudinary link and audio in Neon
+        env:
+          AUDIO_SOURCE_URL: ${{ inputs.audio_url }}
+          CLOUDINARY_URL: ${{ secrets.CLOUDINARY_URL }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: node scripts/upload-game-end-audio.mjs

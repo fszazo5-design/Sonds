@@ -537,6 +537,60 @@ async function handleMediaRequest(request, env, cors, url) {
   return new Response(body, { status: range.partial ? 206 : 200, headers: responseHeaders });
 }
 
+async function handleGameEndRingtoneRequest(request, env, cors) {
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    cors.set('Allow', 'GET, HEAD, OPTIONS');
+    return jsonResponse({ error: 'method_not_allowed' }, 405, cors);
+  }
+
+  const sql = getSql(env);
+  const [audio] = await sql`
+    SELECT mime_type AS "mimeType", byte_size AS "byteSize", sha256
+    FROM public.sonds_audio_assets
+    WHERE asset_key = 'game_end_ringtone' AND is_active = TRUE
+    LIMIT 1
+  `;
+  if (!audio) return jsonResponse({ error: 'game_end_ringtone_not_found' }, 404, cors);
+
+  const size = Number(audio.byteSize);
+  const range = parseByteRange(request.headers.get('Range'), size);
+  if (!range) {
+    const headers = new Headers(cors);
+    headers.set('Accept-Ranges', 'bytes');
+    headers.set('Content-Range', `bytes */${size}`);
+    headers.set('Content-Length', '0');
+    headers.set('Cache-Control', 'public, max-age=300');
+    return new Response(null, { status: 416, headers });
+  }
+
+  const etag = `"${audio.sha256}"`;
+  const length = range.end - range.start + 1;
+  const responseHeaders = new Headers(cors);
+  responseHeaders.set('Content-Type', audio.mimeType);
+  responseHeaders.set('Accept-Ranges', 'bytes');
+  responseHeaders.set('Content-Length', String(length));
+  responseHeaders.set('Cache-Control', 'public, max-age=300');
+  responseHeaders.set('ETag', etag);
+  responseHeaders.set('Content-Disposition', 'inline; filename="game-end-ringtone.mp3"');
+  if (range.partial) responseHeaders.set('Content-Range', `bytes ${range.start}-${range.end}/${size}`);
+  if (!range.partial && request.headers.get('If-None-Match') === etag) {
+    return new Response(null, { status: 304, headers: responseHeaders });
+  }
+  if (request.method === 'HEAD') return new Response(null, { status: range.partial ? 206 : 200, headers: responseHeaders });
+
+  const [encoded] = await sql`
+    SELECT encode(substring(audio_bytes FROM ${range.start + 1} FOR ${length}), 'base64') AS data
+    FROM public.sonds_audio_assets
+    WHERE asset_key = 'game_end_ringtone' AND is_active = TRUE
+    LIMIT 1
+  `;
+  if (!encoded?.data) return jsonResponse({ error: 'game_end_ringtone_data_unavailable' }, 503, cors);
+  const body = Uint8Array.from(atob(encoded.data), (character) => character.charCodeAt(0));
+  if (body.byteLength !== length) return jsonResponse({ error: 'game_end_ringtone_data_corrupt' }, 503, cors);
+  return new Response(body, { status: range.partial ? 206 : 200, headers: responseHeaders });
+}
+
 export default {
   async fetch(request, env) {
     const cors = corsHeaders(request, env);
@@ -553,6 +607,15 @@ export default {
         const status = Number.isInteger(error?.statusCode) ? error.statusCode : 503;
         if (status >= 500) console.error('Neon video request failed; verify Worker secret and video table migration.');
         return jsonResponse({ error: status === 503 ? 'media_service_unavailable' : (error?.message ?? 'media_request_failed') }, status, cors.headers);
+      }
+    }
+    if (url.pathname === '/v1/game-end-ringtone') {
+      try {
+        return await handleGameEndRingtoneRequest(request, env, cors.headers);
+      } catch (error) {
+        const status = Number.isInteger(error?.statusCode) ? error.statusCode : 503;
+        if (status >= 500) console.error('Game end ringtone request failed; verify the Neon audio migration and asset row.');
+        return jsonResponse({ error: 'game_end_ringtone_service_unavailable' }, status, cors.headers);
       }
     }
     if (url.pathname === '/v1/game-images' || url.pathname.startsWith('/v1/game-images/')) {
