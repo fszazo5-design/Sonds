@@ -59,6 +59,7 @@ const imageUploadError = (error: unknown): string => {
   const message = error instanceof Error ? error.message : '';
   if (message.includes('cloudinary_not_configured')) return 'أضيفي السر CLOUDINARY_URL في Cloudflare Worker ثم حاولي مرة أخرى.';
   if (message.includes('cloudinary_configuration_invalid')) return 'قيمة CLOUDINARY_URL غير صحيحة. استخدمي cloudinary://API_KEY:API_SECRET@CLOUD_NAME.';
+  if (message.includes('cloudinary_upload_failed:')) return `رفض Cloudinary الطلب: ${message.split('cloudinary_upload_failed:')[1]}`;
   if (message.includes('cloudinary_upload_failed')) return 'رفض Cloudinary رفع الصورة. راجعي API Key وAPI Secret واسم Cloud Name.';
   if (message.includes('game_image_too_large')) return 'الصورة كبيرة جداً. اختاري صورة أصغر من 2 ميجابايت.';
   if (message.includes('device_key_conflict')) return 'انتهت جلسة الحفظ السحابي. أغلقي التطبيق وافتحيه ثم حاولي مرة أخرى.';

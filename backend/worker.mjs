@@ -143,8 +143,13 @@ async function uploadToCloudinary(env, imageId, mimeType, imageBytes) {
     method: 'POST',
     body: form,
   });
-  if (!response.ok) throw makeError('cloudinary_upload_failed', 502);
-  const result = await response.json();
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const remoteMessage = typeof result?.error?.message === 'string'
+      ? result.error.message.replace(/[^\w .,:;()/'-]/g, '').slice(0, 180)
+      : 'unknown_cloudinary_error';
+    throw makeError(`cloudinary_upload_failed:${remoteMessage}`, 502);
+  }
   if (typeof result?.secure_url !== 'string' || !result.secure_url.startsWith('https://')) {
     throw makeError('cloudinary_upload_invalid_response', 502);
   }
