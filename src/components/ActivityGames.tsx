@@ -6,7 +6,7 @@ import squatsArt from '../assets/game-squats.webp';
 import danceArt from '../assets/game-dance.webp';
 import stretchArt from '../assets/game-stretch.webp';
 import gameEndSound from '../assets/game-countdown-laufey.mp3';
-import { uploadGameImage, type LocalSyncIdentity } from '../lib/neonSync';
+import { deleteGameImage, uploadGameImage, type LocalSyncIdentity } from '../lib/neonSync';
 
 export type CustomActivity = {
   id: string;
@@ -99,6 +99,8 @@ export default function ActivityGames({ active, customGames, deletedGameIds, rem
   const [countdown, setCountdown] = useState(0);
   const [completeNotice, setCompleteNotice] = useState('');
   const [savingGame, setSavingGame] = useState(false);
+  const [deletingGameId, setDeletingGameId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState('');
   const migratedImageIds = useRef(new Set<string>());
   const selected = games.find((game) => game.id === selectedId) ?? null;
 
@@ -218,7 +220,23 @@ export default function ActivityGames({ active, customGames, deletedGameIds, rem
     setImagePreview('');
     setFormError('');
   };
-  const deleteGame = (game: ActivityGame) => {
+  const deleteGame = async (game: ActivityGame) => {
+    setDeleteError('');
+    if (game.id.startsWith('custom-game-') && game.image?.startsWith('https://res.cloudinary.com/')) {
+      if (!neonSyncApiUrl || !syncIdentity) {
+        setDeleteError('لا يمكن حذف صورة Cloudinary الآن لعدم توفر اتصال المزامنة. أعيدي الاتصال ثم حاولي مرة أخرى.');
+        return;
+      }
+      setDeletingGameId(game.id);
+      try {
+        await deleteGameImage(neonSyncApiUrl, syncIdentity, game.id);
+      } catch {
+        setDeleteError('تعذّر حذف الصورة السحابية. لم تُحذف اللعبة؛ تحققي من الاتصال ثم حاولي مرة أخرى.');
+        setDeletingGameId(null);
+        return;
+      }
+      setDeletingGameId(null);
+    }
     if (game.id.startsWith('custom-game-')) {
       onCustomGamesChange(customGames.filter((item) => item.id !== game.id));
     } else {
@@ -279,6 +297,7 @@ export default function ActivityGames({ active, customGames, deletedGameIds, rem
       <div className="games-summary"><div><Trophy size={20} /><strong>{fmt(stats.sessions)}</strong><span>جولات مكتملة</span></div><div><Flame size={20} /><strong>{fmt(stats.totalReps)}</strong><span>حركات مسجّلة</span></div><div><Star size={20} /><strong>{fmt(stats.bestReps)}</strong><span>أفضل جولة</span></div></div>
 
       <div className="games-section-heading"><div><span className="section-kicker">اختاري ما يناسبك</span><h3>ألعاب الحركة</h3></div><span className="games-count">{fmt(visibleGames.length)} ألعاب</span></div>
+      {deleteError && <p className="game-form-error" role="alert">{deleteError}</p>}
       <div className="games-grid">
         {visibleGames.map((game) => (
           <article className={`activity-game-card game-${game.color}`} key={game.id}>
@@ -291,7 +310,7 @@ export default function ActivityGames({ active, customGames, deletedGameIds, rem
                 const reminder = reminders[game.id] ?? { enabled: false, time: '18:00' };
                 return <div className="game-reminder-row"><label className="game-reminder-toggle"><input type="checkbox" checked={reminder.enabled} onChange={(event) => { onRemindersChange({ ...reminders, [game.id]: { ...reminder, enabled: event.target.checked } }); onEvent?.('game_reminder_changed', { gameId: game.id, enabled: event.target.checked, time: reminder.time }); }} /><Bell size={14} /><span>تنبيه يومي</span></label><input className="game-reminder-time" type="time" aria-label={`موعد التنبيه اليومي للعبة ${game.title}`} value={reminder.time} disabled={!reminder.enabled} onChange={(event) => { onRemindersChange({ ...reminders, [game.id]: { ...reminder, time: event.target.value } }); onEvent?.('game_reminder_changed', { gameId: game.id, enabled: reminder.enabled, time: event.target.value }); }} /></div>;
               })()}
-              <div className="game-card-actions"><button type="button" className="game-play-button" onClick={() => openGame(game)}><Play size={15} fill="currentColor" /> ابدئي اللعب</button><button type="button" className="game-delete-button" onClick={() => deleteGame(game)} aria-label={`حذف ${game.title}`} title="حذف اللعبة"><Trash2 size={15} /></button></div>
+              <div className="game-card-actions"><button type="button" className="game-play-button" onClick={() => openGame(game)}><Play size={15} fill="currentColor" /> ابدئي اللعب</button><button type="button" className="game-delete-button" disabled={deletingGameId !== null} onClick={() => void deleteGame(game)} aria-label={`حذف ${game.title}`} title={deletingGameId === game.id ? 'جارٍ حذف الصورة واللعبة...' : 'حذف اللعبة'}><Trash2 size={15} /></button></div>
             </div>
           </article>
         ))}

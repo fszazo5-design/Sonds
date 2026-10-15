@@ -1,2 +1,6 @@
 # Copy to .dev.vars for local Wrangler testing; never put a real value in this tracked example.
 NEON_DATABASE_URL=
+# Use local-only values for development; never commit actual credentials.
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=

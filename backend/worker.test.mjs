@@ -38,7 +38,7 @@ test('allows the configured Pages origin and blocks an unrelated origin', async 
 test('supports allowed preflight requests and the sync HTTP methods', async () => {
   const response = await worker.fetch(request('/v1/sync', { method: 'OPTIONS' }), {});
   assert.equal(response.status, 204);
-  assert.equal(response.headers.get('Access-Control-Allow-Methods'), 'GET, HEAD, POST, OPTIONS');
+  assert.equal(response.headers.get('Access-Control-Allow-Methods'), 'GET, HEAD, POST, DELETE, OPTIONS');
   const mediaOptions = await worker.fetch(request('/v1/media', { method: 'OPTIONS' }), {});
   assert.equal(mediaOptions.status, 204);
   assert.match(mediaOptions.headers.get('Access-Control-Allow-Methods'), /GET/);
@@ -66,4 +66,21 @@ test('video API requires a configured Neon connection before querying video data
   assert.deepEqual(await response.json(), { error: 'media_service_unavailable' });
   const method = await worker.fetch(request('/v1/media', { method: 'POST' }), {});
   assert.equal(method.status, 405);
+});
+
+test('game-image deletion route is available only through the configured server-side Neon connection', async () => {
+  const response = await worker.fetch(request('/v1/game-images/custom-game-123', {
+    method: 'DELETE',
+    body: { deviceId, deviceSecret },
+  }), {});
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { error: 'database_not_configured' });
+  assert.equal(response.headers.get('Access-Control-Allow-Methods'), 'GET, HEAD, POST, DELETE, OPTIONS');
+
+  const invalid = await worker.fetch(request('/v1/game-images/pushups', {
+    method: 'DELETE',
+    body: { deviceId, deviceSecret },
+  }), {});
+  assert.equal(invalid.status, 400);
+  assert.deepEqual(await invalid.json(), { error: 'invalid_game_id' });
 });

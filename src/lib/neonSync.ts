@@ -153,3 +153,36 @@ export async function uploadGameImage(
     globalThis.clearTimeout(timeout);
   }
 }
+
+export async function deleteGameImage(
+  apiUrl: string,
+  identity: LocalSyncIdentity,
+  gameId: string,
+): Promise<{ ok: boolean; deleted: boolean }> {
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(() => controller.abort(), 20_000);
+  try {
+    const response = await fetch(`${apiUrl}/v1/game-images/${encodeURIComponent(gameId)}`, {
+      method: 'DELETE',
+      mode: 'cors',
+      credentials: 'omit',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceId: identity.deviceId, deviceSecret: identity.deviceSecret }),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      let detail = '';
+      try {
+        const payload = await response.json() as { error?: string };
+        detail = typeof payload.error === 'string' ? `_${payload.error}` : '';
+      } catch {
+        // Keep the HTTP status when the Worker returns a non-JSON error.
+      }
+      throw new Error(`neon_game_image_delete_http_${response.status}${detail}`);
+    }
+    return await response.json() as { ok: boolean; deleted: boolean };
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
+}

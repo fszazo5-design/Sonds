@@ -31,7 +31,7 @@ function corsHeaders(request, env) {
   if (origin === null) return { allowed: true, headers };
   if (!allowedOrigins.has(origin)) return { allowed: false, headers };
   headers.set('Access-Control-Allow-Origin', origin);
-  headers.set('Access-Control-Allow-Methods', 'GET, HEAD, POST, OPTIONS');
+  headers.set('Access-Control-Allow-Methods', 'GET, HEAD, POST, DELETE, OPTIONS');
   headers.set('Access-Control-Allow-Headers', 'Content-Type, Range, If-None-Match');
   headers.set('Access-Control-Expose-Headers', 'Accept-Ranges, Content-Length, Content-Range, ETag');
   headers.set('Access-Control-Max-Age', '600');
@@ -163,9 +163,31 @@ async function uploadToCloudinary(env, imageId, mimeType, imageBytes) {
   return result.secure_url;
 }
 
+async function deleteFromCloudinary(env, imageId) {
+  const { cloudName, apiKey, apiSecret } = getCloudinaryConfig(env);
+  const timestamp = Math.floor(Date.now() / 1000);
+  const publicId = `sonds-games/${imageId}`;
+  const signature = await sha1Hex(`public_id=${publicId}&timestamp=${timestamp}${apiSecret}`);
+  const form = new FormData();
+  form.append('public_id', publicId);
+  form.append('api_key', apiKey);
+  form.append('timestamp', String(timestamp));
+  form.append('signature', signature);
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/destroy`, {
+    method: 'POST',
+    body: form,
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !['ok', 'not found'].includes(result?.result)) {
+    const remoteMessage = typeof result?.error?.message === 'string'
+      ? result.error.message.replace(/[^\w .,:;()/'-]/g, '').slice(0, 180)
+      : 'unknown_cloudinary_error';
+    throw makeError(`cloudinary_delete_failed:${remoteMessage}`, 502);
+  }
+}
+
 async function handleGameImageRequest(request, env, cors, url) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
-  const sql = getSql(env);
 
   if (url.pathname === '/v1/game-images') {
     if (request.method !== 'POST') {
@@ -177,6 +199,7 @@ async function handleGameImageRequest(request, env, cors, url) {
     }
     const body = await readJson(request);
     const { deviceId, secretHash } = await parseIdentity(body);
+    const sql = getSql(env);
     const [authorizedDevice] = await sql`
       SELECT 1
       FROM public.sonds_device_sync
@@ -197,12 +220,74 @@ async function handleGameImageRequest(request, env, cors, url) {
     return jsonResponse({ ok: true, imageUrl }, 200, cors);
   }
 
+  if (request.method === 'DELETE') {
+    let gameId;
+    try {
+      gameId = decodeURIComponent(url.pathname.slice('/v1/game-images/'.length));
+    } catch {
+      return jsonResponse({ error: 'invalid_game_id' }, 400, cors);
+    }
+    if (!/^custom-game-[A-Za-z0-9_-]{1,120}$/.test(gameId)) {
+      return jsonResponse({ error: 'invalid_game_id' }, 400, cors);
+    }
+    if (!String(request.headers.get('Content-Type') ?? '').toLowerCase().startsWith('application/json')) {
+      return jsonResponse({ error: 'content_type_must_be_json' }, 415, cors);
+    }
+    const body = await readJson(request);
+    const { deviceId, secretHash } = await parseIdentity(body);
+    const sql = getSql(env);
+    const [authorizedDevice] = await sql`
+      SELECT 1
+      FROM public.sonds_device_sync
+      WHERE device_id = ${deviceId}::uuid AND secret_hash = ${secretHash}
+      LIMIT 1
+    `;
+    if (!authorizedDevice) return jsonResponse({ error: 'device_key_conflict' }, 409, cors);
+
+    const imageId = await sha256Hex(new TextEncoder().encode(`${deviceId}:${gameId}`));
+    await deleteFromCloudinary(env, imageId);
+    await sql`DELETE FROM public.sonds_game_images WHERE image_id = ${imageId} AND device_id = ${deviceId}::uuid`;
+    await sql`UPDATE public.sonds_activity_games SET image = NULL WHERE device_id = ${deviceId}::uuid AND game_id = ${gameId}`;
+    await sql`
+      UPDATE public.sonds_device_sync
+      SET state = jsonb_set(
+        state,
+        '{customActivities}',
+        COALESCE((
+          SELECT jsonb_agg(CASE WHEN item->>'id' = ${gameId} THEN item - 'image' ELSE item END)
+          FROM jsonb_array_elements(state->'customActivities') AS items(item)
+        ), '[]'::jsonb),
+        TRUE
+      ), updated_at = NOW()
+      WHERE device_id = ${deviceId}::uuid
+        AND jsonb_typeof(state->'customActivities') = 'array'
+        AND state->'customActivities' @> ${JSON.stringify([{ id: gameId }])}::jsonb
+    `;
+    await sql`
+      UPDATE public.sonds_state_snapshots
+      SET state = jsonb_set(
+        state,
+        '{customActivities}',
+        COALESCE((
+          SELECT jsonb_agg(CASE WHEN item->>'id' = ${gameId} THEN item - 'image' ELSE item END)
+          FROM jsonb_array_elements(state->'customActivities') AS items(item)
+        ), '[]'::jsonb),
+        TRUE
+      )
+      WHERE device_id = ${deviceId}::uuid
+        AND jsonb_typeof(state->'customActivities') = 'array'
+        AND state->'customActivities' @> ${JSON.stringify([{ id: gameId }])}::jsonb
+    `;
+    return jsonResponse({ ok: true, deleted: true }, 200, cors);
+  }
+
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     cors.set('Allow', 'GET, HEAD, POST, OPTIONS');
     return jsonResponse({ error: 'method_not_allowed' }, 405, cors);
   }
   const imageId = url.pathname.slice('/v1/game-images/'.length);
   if (!/^[a-f0-9]{64}$/.test(imageId)) return jsonResponse({ error: 'invalid_game_image_id' }, 400, cors);
+  const sql = getSql(env);
   const [image] = await sql`
     SELECT mime_type AS "mimeType", byte_size AS "byteSize", sha256
     FROM public.sonds_game_images
