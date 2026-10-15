@@ -106,6 +106,13 @@ async function sha1Hex(value) {
 }
 
 function getCloudinaryConfig(env) {
+  if (env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET) {
+    return {
+      cloudName: String(env.CLOUDINARY_CLOUD_NAME).trim(),
+      apiKey: String(env.CLOUDINARY_API_KEY).trim(),
+      apiSecret: String(env.CLOUDINARY_API_SECRET).trim(),
+    };
+  }
   // CLOUDINARY_URL هو الاسم الصحيح؛ نقبل الاسم القديم مؤقتاً حتى لا تتعطل الإصدارات الحالية.
   const configured = env.CLOUDINARY_URL || env.CLOUDINARY_UPLOAD_PRESET;
   const cloudinaryUrl = typeof configured === 'string'

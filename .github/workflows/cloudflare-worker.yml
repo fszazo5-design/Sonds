@@ -38,15 +38,22 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           CLOUDINARY_URL: ${{ secrets.CLOUDINARY_URL }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
         shell: bash
         run: |
           set -euo pipefail
-          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID NEON_DATABASE_URL CLOUDINARY_URL; do
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID NEON_DATABASE_URL; do
             if [[ -z "${!name}" ]]; then
               echo "Missing GitHub Actions secret: ${name}" >&2
               exit 1
             fi
           done
+          if [[ -z "${CLOUDINARY_URL}" && ( -z "${CLOUDINARY_CLOUD_NAME}" || -z "${CLOUDINARY_API_KEY}" || -z "${CLOUDINARY_API_SECRET}" ) ]]; then
+            echo "Add CLOUDINARY_URL or all three separate Cloudinary secrets." >&2
+            exit 1
+          fi
 
       - name: Set the Worker-only secrets
         env:
@@ -54,11 +61,41 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           CLOUDINARY_URL: ${{ secrets.CLOUDINARY_URL }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
         shell: bash
         run: |
           set -euo pipefail
+          cloud_name="$CLOUDINARY_CLOUD_NAME"
+          api_key="$CLOUDINARY_API_KEY"
+          api_secret="$CLOUDINARY_API_SECRET"
+          if [[ -z "$cloud_name" || -z "$api_key" || -z "$api_secret" ]]; then
+            python3 - "$CLOUDINARY_URL" <<'PY'
+          import sys
+          from urllib.parse import unquote, urlsplit
+          raw = sys.argv[1].strip().strip('"').strip("'")
+          if raw.lower().startswith('cloudinary_url='):
+              raw = raw.split('=', 1)[1].strip()
+          parsed = urlsplit(raw)
+          if parsed.scheme != 'cloudinary' or not parsed.hostname or not parsed.username or not parsed.password:
+              raise SystemExit('Invalid CLOUDINARY_URL format')
+          for name, value in (
+              ('cloud_name', parsed.hostname),
+              ('api_key', unquote(parsed.username)),
+              ('api_secret', unquote(parsed.password)),
+          ):
+              with open('/tmp/cloudinary_' + name, 'w') as handle:
+                  handle.write(value)
+          PY
+            cloud_name="$(cat /tmp/cloudinary_cloud_name)"
+            api_key="$(cat /tmp/cloudinary_api_key)"
+            api_secret="$(cat /tmp/cloudinary_api_secret)"
+          fi
           printf '%s' "$NEON_DATABASE_URL" | npx wrangler versions secret put NEON_DATABASE_URL --config wrangler.toml
-          printf '%s' "$CLOUDINARY_URL" | npx wrangler versions secret put CLOUDINARY_URL --config wrangler.toml
+          printf '%s' "$cloud_name" | npx wrangler versions secret put CLOUDINARY_CLOUD_NAME --config wrangler.toml
+          printf '%s' "$api_key" | npx wrangler versions secret put CLOUDINARY_API_KEY --config wrangler.toml
+          printf '%s' "$api_secret" | npx wrangler versions secret put CLOUDINARY_API_SECRET --config wrangler.toml
 
       - name: Deploy Worker to Cloudflare
         uses: cloudflare/wrangler-action@v4
