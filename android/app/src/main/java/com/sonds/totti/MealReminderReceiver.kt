@@ -62,6 +62,7 @@ internal class MealAlarmScheduler(private val context: Context) {
         const val EXTRA_MEAL_ID = "meal_id"
         // Android keeps notification-channel sound immutable; use a fresh ID for the new track.
         const val CHANNEL_ID = "meal_schedule_with_audio_v3"
+        const val WATER_CHANNEL_ID = "water_reminder_with_audio_v1"
 
         fun ensureChannel(context: Context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -78,6 +79,13 @@ internal class MealAlarmScheduler(private val context: Context) {
                     setSound(soundUri, audioAttributes)
                 }
                 manager.createNotificationChannel(channel)
+                val waterChannel = android.app.NotificationChannel(
+                    WATER_CHANNEL_ID, "تذكير شرب الماء", NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "تنبيه صوتي في مواعيد شرب الماء"
+                    setSound(soundUri, audioAttributes)
+                }
+                manager.createNotificationChannel(waterChannel)
             }
         }
     }
@@ -103,7 +111,8 @@ class MealReminderReceiver : BroadcastReceiver() {
                 meal.id.startsWith("water-reminder") -> "تذكير لطيف من توتي — خذي كوب ماء الآن."
                 else -> "تذكير لطيف من توتي — خطتك الصحية بانتظارك."
             }
-            val notification = Notification.Builder(context, MealAlarmScheduler.CHANNEL_ID)
+            val channelId = if (meal.id.startsWith("water-reminder")) MealAlarmScheduler.WATER_CHANNEL_ID else MealAlarmScheduler.CHANNEL_ID
+            val notification = Notification.Builder(context, channelId)
                 .setSmallIcon(android.R.drawable.ic_popup_reminder)
                 .setContentTitle(if (meal.id.startsWith("water-reminder")) "وقت شرب الماء" else if (meal.id.startsWith("adhkar")) meal.title else "حان موعد ${meal.title}")
                 .setContentText(notificationCopy)

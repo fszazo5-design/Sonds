@@ -381,6 +381,12 @@ async function saveNormalizedState(sql, deviceId, state) {
     if (!Number.isFinite(numericWeight)) continue;
     await sql`INSERT INTO public.sonds_water_weights (device_id, day_date, weight, updated_at) VALUES (${deviceId}::uuid, ${date}::date, ${numericWeight}, NOW()) ON CONFLICT (device_id, day_date) DO UPDATE SET weight=EXCLUDED.weight, updated_at=NOW()`;
   }
+  const validReminderTimes = asArray(water.reminderTimes)
+    .map((time) => text(time))
+    .filter((time) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time));
+  await sql`INSERT INTO public.sonds_water_settings (device_id, daily_goal, reminders_enabled, reminder_times, updated_at)
+    VALUES (${deviceId}::uuid, ${Math.min(16, Math.max(4, integer(water.dailyGoal, 8)))}, ${Boolean(water.remindersEnabled)}, ${JSON.stringify(validReminderTimes)}::jsonb, NOW())
+    ON CONFLICT (device_id) DO UPDATE SET daily_goal=EXCLUDED.daily_goal, reminders_enabled=EXCLUDED.reminders_enabled, reminder_times=EXCLUDED.reminder_times, updated_at=NOW()`;
   const validTime = (value, fallback) => /^([01]\d|2[0-3]):[0-5]\d$/.test(text(value)) ? text(value) : fallback;
   await sql`INSERT INTO public.sonds_adhkar_settings (device_id, morning_enabled, morning_time, evening_enabled, evening_time, morning_progress, evening_progress, updated_at)
     VALUES (${deviceId}::uuid, ${Boolean(adhkarSettings.morningEnabled)}, ${validTime(adhkarSettings.morningTime, '07:00')}, ${Boolean(adhkarSettings.eveningEnabled)}, ${validTime(adhkarSettings.eveningTime, '19:00')}, ${JSON.stringify(asArray(adhkarProgress.morning))}::jsonb, ${JSON.stringify(asArray(adhkarProgress.evening))}::jsonb, NOW())

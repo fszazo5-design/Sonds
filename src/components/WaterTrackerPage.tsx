@@ -72,6 +72,10 @@ export default function WaterTrackerPage({ active, data, onChange, onBack }: Wat
   const weekEnd = days[6];
   const weekLabel = `${new Intl.DateTimeFormat('ar-EG', { day: 'numeric', month: 'short' }).format(weekStart)} — ${new Intl.DateTimeFormat('ar-EG', { day: 'numeric', month: 'short' }).format(weekEnd)}`;
   const selectedWeight = data.weightByDate[selectedDay];
+  const weightRows = Object.entries(data.weightByDate)
+    .filter(([key, value]) => /^\d{4}-\d{2}-\d{2}$/.test(key) && Number.isFinite(Number(value)))
+    .sort(([left], [right]) => right.localeCompare(left))
+    .slice(0, 31);
   const completedDays = days.filter((day) => (data.cupsByDate[dateKey(day)] ?? 0) >= goal && dateKey(day) <= todayKey).length;
 
   const update = (patch: Partial<WaterTrackingData>): void => onChange({ ...data, ...patch });
@@ -152,6 +156,12 @@ export default function WaterTrackerPage({ active, data, onChange, onBack }: Wat
             <p>لو حبيتي، سجّلي قراءة الوزن لهذا اليوم لتتبعي تغيّرها بمرور الوقت. اتركيها فارغة إذا مش محتاجة.</p>
             <label className="water-weight-field"><span><Scale size={16} /> الوزن</span><span className="water-weight-input-wrap"><input type="number" min="1" max="500" step="0.1" inputMode="decimal" value={selectedWeight ?? ''} placeholder="—" aria-label="الوزن بالكيلوغرام" onChange={(event) => { const value = event.target.value; const next = { ...data.weightByDate }; if (!value) delete next[selectedDay]; else { const parsed = Number(value); if (Number.isFinite(parsed) && parsed > 0 && parsed <= 500) next[selectedDay] = parsed; } update({ weightByDate: next }); }} /><small>كجم</small></span></label>
             <div className="water-privacy-note"><Heart size={14} /> سجل الجسم محفوظ محليًا، ويُزامَن مع خطتك عند إعداد الخادم السحابي.</div>
+          </section>
+
+          <section className="water-weight-history-card">
+            <div className="water-side-heading"><span className="water-weight-history-icon"><CalendarDays size={20} /></span><div><span className="section-kicker">سجل يومي محفوظ</span><h3>جدول الوزن والتاريخ</h3></div></div>
+            {weightRows.length === 0 ? <p className="water-empty-history">لم تسجّلي وزناً بعد. اختاري يوماً وأضيفي القراءة لتظهر هنا.</p> : <div className="water-weight-table-wrap"><table className="water-weight-table"><thead><tr><th>اليوم</th><th>التاريخ</th><th>الوزن</th></tr></thead><tbody>{weightRows.map(([key, value]) => { const date = fromKey(key); return <tr key={key} className={key === selectedDay ? 'water-weight-row-selected' : ''}><td>{new Intl.DateTimeFormat('ar-EG', { weekday: 'short' }).format(date)}</td><td><button type="button" onClick={() => setSelectedDay(key)}>{new Intl.DateTimeFormat('ar-EG', { day: 'numeric', month: 'short', year: 'numeric' }).format(date)}</button></td><td>{formatNumber(Number(value))} <small>كجم</small></td></tr>; })}</tbody></table></div>}
+            <p className="water-privacy-note"><Heart size={14} /> كل قراءة مرتبطة بتاريخها وتُحفظ في جدول الوزن داخل Neon عند المزامنة.</p>
           </section>
 
           <section className="water-health-card"><span className="water-health-illustration"><HeartPulse size={25} /><Droplets size={19} /></span><div><span className="section-kicker">عناية متوازنة</span><h3>استمعي لجسمك</h3><p>اشربي على مهل وحسب احتياجك. الهدف تذكير لطيف، وليس قاعدة طبية تناسب الجميع.</p></div></section>
