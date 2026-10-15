@@ -107,7 +107,10 @@ async function sha1Hex(value) {
 
 function getCloudinaryConfig(env) {
   // CLOUDINARY_URL هو الاسم الصحيح؛ نقبل الاسم القديم مؤقتاً حتى لا تتعطل الإصدارات الحالية.
-  const cloudinaryUrl = env.CLOUDINARY_URL || env.CLOUDINARY_UPLOAD_PRESET;
+  const configured = env.CLOUDINARY_URL || env.CLOUDINARY_UPLOAD_PRESET;
+  const cloudinaryUrl = typeof configured === 'string'
+    ? configured.trim().replace(/^CLOUDINARY_URL\s*=\s*/i, '').replace(/^['"]|['"]$/g, '').trim()
+    : '';
   if (!cloudinaryUrl) throw makeError('cloudinary_not_configured', 503);
   let parsed;
   try {
