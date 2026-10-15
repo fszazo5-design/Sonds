@@ -306,7 +306,7 @@ class MainActivity : Activity() {
         fun playGameCountdownSound() = playGameSound(0.72f, R.raw.game_countdown_laufey)
 
         @JavascriptInterface
-        fun playGameEndSound() = playGameSound(1.0f, R.raw.game_end_ringtone)
+        fun playGameEndSound() = playGameSound(1.0f, R.raw.game_countdown_laufey)
 
         @JavascriptInterface
         fun notifyGameEnd(title: String, body: String) = runOnUiThread {
@@ -388,10 +388,8 @@ class MainActivity : Activity() {
 }
 
 private object GameEndNotification {
-    private const val CHANNEL_ID = "game_end_with_audio_v2"
+    private const val CHANNEL_ID = "game_end_with_audio_v3"
     private const val NOTIFICATION_ID = 4101
-    private const val NEON_AUDIO_URL = "https://sonds.fszazo5.workers.dev/v1/game-end-ringtone"
-    private var neonPlayer: MediaPlayer? = null
 
     fun ensureChannel(context: android.content.Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -399,7 +397,7 @@ private object GameEndNotification {
         val channel = android.app.NotificationChannel(
             CHANNEL_ID, "انتهاء جولة اللعب", NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "إشعار عند انتهاء الجولة؛ الصوت يُشغّل من ملف Neon MP3"
+            description = "إشعار عند انتهاء الجولة؛ يستخدم نفس نغمة بدء الجولة"
             setSound(null, null)
             enableVibration(true)
         }
@@ -408,7 +406,7 @@ private object GameEndNotification {
 
     fun notify(context: android.content.Context, title: String, body: String) {
         ensureChannel(context)
-        playNeonSound(context)
+        playAndroidGameSound(context)
         val notificationsAllowed = Build.VERSION.SDK_INT < 33 ||
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         if (!notificationsAllowed) {
@@ -435,47 +433,9 @@ private object GameEndNotification {
         context.getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification)
     }
 
-    private fun playNeonSound(context: android.content.Context) {
-        neonPlayer?.release()
-        neonPlayer = null
-        val player = MediaPlayer()
-        neonPlayer = player
-        try {
-            player.setAudioAttributes(
-                android.media.AudioAttributes.Builder()
-                    .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
-                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build()
-            )
-            player.setDataSource(NEON_AUDIO_URL)
-            player.setOnPreparedListener {
-                if (neonPlayer !== it) {
-                    it.release()
-                    return@setOnPreparedListener
-                }
-                it.setVolume(1.0f, 1.0f)
-                it.start()
-            }
-            player.setOnCompletionListener {
-                if (neonPlayer === it) neonPlayer = null
-                it.release()
-            }
-            player.setOnErrorListener { failed, _, _ ->
-                if (neonPlayer === failed) neonPlayer = null
-                failed.release()
-                playFallbackSound(context)
-                true
-            }
-            player.prepareAsync()
-        } catch (_: Exception) {
-            if (neonPlayer === player) neonPlayer = null
-            player.release()
-            playFallbackSound(context)
-        }
-    }
-
-    private fun playFallbackSound(context: android.content.Context) {
-        MediaPlayer.create(context, R.raw.game_end_ringtone)?.apply {
+    private fun playAndroidGameSound(context: android.content.Context) {
+        // نفس الملف الذي يعمل عند بدء الجولة، لضمان نفس الصوت ومدته على Android.
+        MediaPlayer.create(context, R.raw.game_countdown_laufey)?.apply {
             setVolume(1.0f, 1.0f)
             setOnCompletionListener { it.release() }
             start()
