@@ -10,3 +10,7 @@ CREATE TABLE IF NOT EXISTS public.sonds_water_settings (
 COMMENT ON TABLE public.sonds_water_settings IS 'Complete water-page settings per installation, including goal and daily reminder times.';
 COMMENT ON TABLE public.sonds_water_daily IS 'Daily water cup log keyed by local calendar date.';
 COMMENT ON TABLE public.sonds_water_weights IS 'Daily weight log keyed by local calendar date.';
+CREATE INDEX IF NOT EXISTS sonds_water_daily_device_date_idx
+  ON public.sonds_water_daily (device_id, day_date DESC);
+CREATE INDEX IF NOT EXISTS sonds_water_weights_device_date_idx
+  ON public.sonds_water_weights (device_id, day_date DESC);
