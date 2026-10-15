@@ -8,11 +8,11 @@
 
 ## الملفات
 
-- `worker.mjs`: Cloudflare Worker، فيه `GET /health` و`POST /v1/sync` و`GET /v1/media` و`GET /v1/media/:id`، إضافة إلى `POST /v1/game-images` و`GET /v1/game-images/:id` لرفع صور الألعاب إلى Neon وخدمتها كرابط Cloudflare.
+- `worker.mjs`: Cloudflare Worker، فيه `GET /health` و`POST /v1/sync` و`GET /v1/media` و`GET /v1/media/:id`، إضافة إلى `POST /v1/game-images` لرفع صور الألعاب إلى Cloudinary وإرجاع الرابط ليُحفظ في Neon.
 - `server.mjs`: بديل Node.js مستقل، غير لازم لنشر Cloudflare.
 - `migrations/001_create_device_sync.sql`: migration قابل لإعادة التشغيل؛ ينشئ جدولًا جديدًا وفهرسًا ولا يعدّل جداول أخرى.
 - `migrations/004_create_sonds_video_library.sql`: ينشئ جدول مكتبة الفيديوهات بصورة إضافية وآمنة.
-- `migrations/005_create_sonds_game_images.sql`: ينشئ تخزين صور الألعاب خارج حالة JSON؛ حالة اللعبة تحفظ رابط Worker فقط.
+- `migrations/005_create_sonds_game_images.sql`: ترحيل سابق لتخزين الصور داخل Neon؛ الرفع الحالي يستخدم Cloudinary ولا يضيف بايتات جديدة إلى Neon.
 - `video-manifest.json` و`../scripts/import-neon-videos.mjs`: فهرس ورفع تكراري آمن لفيديوهات المستودع إلى Neon.
 - `sync-core.mjs`: تحقق مشترك من بيانات الأجهزة وحجم الخطة.
 - `worker.test.mjs` و`sync-core.test.mjs`: اختبارات لا تحتاج إلى اتصال حقيقي بقاعدة Neon.
@@ -27,6 +27,7 @@
 في المستودع `fszazo5-design/Sonds`، افتحي **Settings → Secrets and variables → Actions → New repository secret**، ثم أضيفي:
 
 - `NEON_DATABASE_URL`: عنوان الاتصال لقاعدة Neon التي اخترتها، كـSecret لا كـVariable.
+- `CLOUDINARY_URL`: سر Cloudinary بصيغة `cloudinary://API_KEY:API_SECRET@CLOUD_NAME`، مضبوطاً كسِر في Cloudflare Worker فقط.
 - `CLOUDFLARE_API_TOKEN`: Cloudflare API Token بصلاحية **Edit Cloudflare Workers** على الحساب المقصود.
 - `CLOUDFLARE_ACCOUNT_ID`: معرّف حساب Cloudflare.
 

@@ -100,6 +100,52 @@ async function sha256Hex(value) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
+async function sha1Hex(value) {
+  const digest = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function getCloudinaryConfig(env) {
+  if (!env.CLOUDINARY_URL) throw makeError('cloudinary_not_configured', 503);
+  let parsed;
+  try {
+    parsed = new URL(env.CLOUDINARY_URL);
+  } catch {
+    throw makeError('cloudinary_configuration_invalid', 503);
+  }
+  if (parsed.protocol !== 'cloudinary:' || !parsed.hostname || !parsed.username || !parsed.password) {
+    throw makeError('cloudinary_configuration_invalid', 503);
+  }
+  return {
+    cloudName: parsed.hostname,
+    apiKey: decodeURIComponent(parsed.username),
+    apiSecret: decodeURIComponent(parsed.password),
+  };
+}
+
+async function uploadToCloudinary(env, imageId, mimeType, imageBytes) {
+  const { cloudName, apiKey, apiSecret } = getCloudinaryConfig(env);
+  const timestamp = Math.floor(Date.now() / 1000);
+  const publicId = `sonds-games/${imageId}`;
+  const signature = await sha1Hex(`public_id=${publicId}&timestamp=${timestamp}${apiSecret}`);
+  const form = new FormData();
+  form.append('file', new Blob([imageBytes], { type: mimeType }), `${imageId}.${mimeType.split('/')[1]}`);
+  form.append('api_key', apiKey);
+  form.append('timestamp', String(timestamp));
+  form.append('public_id', publicId);
+  form.append('signature', signature);
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`, {
+    method: 'POST',
+    body: form,
+  });
+  if (!response.ok) throw makeError('cloudinary_upload_failed', 502);
+  const result = await response.json();
+  if (typeof result?.secure_url !== 'string' || !result.secure_url.startsWith('https://')) {
+    throw makeError('cloudinary_upload_invalid_response', 502);
+  }
+  return result.secure_url;
+}
+
 async function handleGameImageRequest(request, env, cors, url) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   const sql = getSql(env);
@@ -130,13 +176,8 @@ async function handleGameImageRequest(request, env, cors, url) {
       return jsonResponse({ error: 'game_image_too_large' }, 413, cors);
     }
     const imageId = await sha256Hex(new TextEncoder().encode(`${deviceId}:${gameId}`));
-    const sha256 = await sha256Hex(imageBytes);
-    await sql`
-      INSERT INTO public.sonds_game_images (image_id, device_id, game_id, mime_type, byte_size, sha256, image_bytes, updated_at)
-      VALUES (${imageId}, ${deviceId}::uuid, ${gameId}, ${match[1]}, ${imageBytes.byteLength}, ${sha256}, decode(${match[2]}, 'base64'), NOW())
-      ON CONFLICT (device_id, game_id) DO UPDATE SET image_id=EXCLUDED.image_id, mime_type=EXCLUDED.mime_type, byte_size=EXCLUDED.byte_size, sha256=EXCLUDED.sha256, image_bytes=EXCLUDED.image_bytes, updated_at=NOW()
-    `;
-    return jsonResponse({ ok: true, imageUrl: new URL(`/v1/game-images/${imageId}`, url).toString() }, 200, cors);
+    const imageUrl = await uploadToCloudinary(env, imageId, match[1], imageBytes);
+    return jsonResponse({ ok: true, imageUrl }, 200, cors);
   }
 
   if (request.method !== 'GET' && request.method !== 'HEAD') {
