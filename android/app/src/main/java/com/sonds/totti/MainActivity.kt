@@ -388,22 +388,19 @@ class MainActivity : Activity() {
 }
 
 private object GameEndNotification {
-    private const val CHANNEL_ID = "game_end_with_audio_v1"
+    private const val CHANNEL_ID = "game_end_with_audio_v2"
     private const val NOTIFICATION_ID = 4101
+    private const val NEON_AUDIO_URL = "https://sonds.fszazo5.workers.dev/v1/game-end-ringtone"
+    private var neonPlayer: MediaPlayer? = null
 
     fun ensureChannel(context: android.content.Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java)
-        val soundUri = Uri.parse("android.resource://${context.packageName}/${R.raw.game_end_ringtone}")
-        val audioAttributes = android.media.AudioAttributes.Builder()
-            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
-            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
         val channel = android.app.NotificationChannel(
             CHANNEL_ID, "انتهاء جولة اللعب", NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "تنبيه صوتي عند انتهاء عدّاد جولة اللعب"
-            setSound(soundUri, audioAttributes)
+            description = "إشعار عند انتهاء الجولة؛ الصوت يُشغّل من ملف Neon MP3"
+            setSound(null, null)
             enableVibration(true)
         }
         manager.createNotificationChannel(channel)
@@ -411,10 +408,10 @@ private object GameEndNotification {
 
     fun notify(context: android.content.Context, title: String, body: String) {
         ensureChannel(context)
+        playNeonSound(context)
         val notificationsAllowed = Build.VERSION.SDK_INT < 33 ||
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         if (!notificationsAllowed) {
-            playFallbackSound(context)
             return
         }
         val openApp = PendingIntent.getActivity(
@@ -425,7 +422,6 @@ private object GameEndNotification {
             Notification.Builder(context, CHANNEL_ID)
         } else {
             Notification.Builder(context)
-                .setSound(Uri.parse("android.resource://${context.packageName}/${R.raw.game_end_ringtone}"))
         }
         val notification = builder
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
@@ -437,6 +433,45 @@ private object GameEndNotification {
             .setOnlyAlertOnce(false)
             .build()
         context.getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification)
+    }
+
+    private fun playNeonSound(context: android.content.Context) {
+        neonPlayer?.release()
+        neonPlayer = null
+        val player = MediaPlayer()
+        neonPlayer = player
+        try {
+            player.setAudioAttributes(
+                android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+            player.setDataSource(NEON_AUDIO_URL)
+            player.setOnPreparedListener {
+                if (neonPlayer !== it) {
+                    it.release()
+                    return@setOnPreparedListener
+                }
+                it.setVolume(1.0f, 1.0f)
+                it.start()
+            }
+            player.setOnCompletionListener {
+                if (neonPlayer === it) neonPlayer = null
+                it.release()
+            }
+            player.setOnErrorListener { failed, _, _ ->
+                if (neonPlayer === failed) neonPlayer = null
+                failed.release()
+                playFallbackSound(context)
+                true
+            }
+            player.prepareAsync()
+        } catch (_: Exception) {
+            if (neonPlayer === player) neonPlayer = null
+            player.release()
+            playFallbackSound(context)
+        }
     }
 
     private fun playFallbackSound(context: android.content.Context) {
