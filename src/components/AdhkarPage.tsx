@@ -8,10 +8,10 @@ export type AdhkarSettings = {
   eveningTime: string;
 };
 
-type AdhkarProgress = { morning: string[]; evening: string[]; ruqyah: string[] };
-type Props = { active: boolean; settings: AdhkarSettings; progress: AdhkarProgress; onSettingsChange: (settings: AdhkarSettings) => void; onProgressChange: (progress: AdhkarProgress) => void; onBack: () => void };
+type AdhkarCounts = { morning: Record<string, number>; evening: Record<string, number>; ruqyah: Record<string, number> };
+type Props = { active: boolean; settings: AdhkarSettings; progress: AdhkarCounts; onSettingsChange: (settings: AdhkarSettings) => void; onProgressChange: (progress: AdhkarCounts) => void; onBack: () => void };
 type AdhkarItem = { id: string; text: string; count: number; source?: string };
-type Tab = 'morning' | 'evening' | 'ruqyah';
+type Tab = keyof AdhkarCounts;
 
 const morning: AdhkarItem[] = [
   { id: 'morning-ayatul-kursi', text: 'اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ ۚ لَا تَأْخُذُهُ سِنَةٌ وَلَا نَوْمٌ ۚ لَهُ مَا فِي السَّمَاوَاتِ وَمَا فِي الْأَرْضِ ۗ مَنْ ذَا الَّذِي يَشْفَعُ عِنْدَهُ إِلَّا بِإِذْنِهِ ۚ يَعْلَمُ مَا بَيْنَ أَيْدِيهِمْ وَمَا خَلْفَهُمْ ۖ وَلَا يُحِيطُونَ بِشَيْءٍ مِنْ عِلْمِهِ إِلَّا بِمَا شَاءَ ۚ وَسِعَ كُرْسِيُّهُ السَّمَاوَاتِ وَالْأَرْضَ ۖ وَلَا يَئُودُهُ حِفْظُهُمَا ۚ وَهُوَ الْعَلِيُّ الْعَظِيمُ.', count: 1, source: 'البقرة: 255' },
@@ -53,6 +53,7 @@ const constRuqyah: AdhkarItem[] = [
   { id: 'ruqyah-dua-6', text: 'ضع يدك على الذي تألم من جسدك وقل: بسم الله، ثلاثًا، وقل سبع مرات: أعوذ بالله وقدرته من شر ما أجد وأحاذر.', count: 7, source: 'رواه مسلم' },
 ];
 
+
 const speak = (text: string) => {
   if (window.AndroidBridge?.speakArabic) { window.AndroidBridge.speakArabic(text); return true; }
   if (!('speechSynthesis' in window)) return false;
@@ -68,24 +69,40 @@ export default function AdhkarPage({ active, settings, progress, onSettingsChang
   const [tab, setTab] = useState<Tab>('morning');
   const [speaking, setSpeaking] = useState(false);
   const list = tab === 'morning' ? morning : tab === 'evening' ? evening : constRuqyah;
-  const done = progress[tab];
-  const completed = list.filter((item) => done.includes(item.id)).length;
+  const counts = progress[tab] ?? {};
+  const completed = list.filter((item) => (counts[item.id] ?? 0) >= item.count).length;
   const title = tab === 'morning' ? 'أذكار الصباح' : tab === 'evening' ? 'أذكار المساء' : 'الرقية الشرعية';
   const reminder = tab === 'morning' ? { enabled: settings.morningEnabled, time: settings.morningTime } : { enabled: settings.eveningEnabled, time: settings.eveningTime };
   const setReminder = (patch: Partial<typeof reminder>) => onSettingsChange(tab === 'morning' ? { ...settings, morningEnabled: patch.enabled ?? reminder.enabled, morningTime: patch.time ?? reminder.time } : { ...settings, eveningEnabled: patch.enabled ?? reminder.enabled, eveningTime: patch.time ?? reminder.time });
   const currentText = useMemo(() => list.map((item) => item.text).join(' '), [list]);
   useEffect(() => () => stopSpeak(), []);
-  const toggleItem = (id: string) => onProgressChange({ ...progress, [tab]: done.includes(id) ? done.filter((item) => item !== id) : [...done, id] });
+
+  const updateCounts = (next: Record<string, number>) => onProgressChange({ ...progress, [tab]: next });
+  const increment = (item: AdhkarItem) => {
+    const current = counts[item.id] ?? 0;
+    if (current >= item.count) return;
+    updateCounts({ ...counts, [item.id]: current + 1 });
+    if (current + 1 >= item.count) setSpeaking(false);
+  };
+  const resetItem = (item: AdhkarItem) => {
+    const next = { ...counts };
+    delete next[item.id];
+    updateCounts(next);
+  };
+  const resetAll = () => updateCounts({});
   const readAll = () => { if (speaking) { stopSpeak(); setSpeaking(false); return; } setSpeaking(speak(currentText)); window.setTimeout(() => setSpeaking(false), Math.max(3000, currentText.length * 45)); };
+
   return <section hidden={!active} className="adhkar-page">
     <button type="button" className="adhkar-back-button" onClick={onBack}><ChevronRight size={18} /> العودة إلى قائمة سندس</button>
-    <header className="adhkar-hero"><div><span className="adhkar-eyebrow"><BookOpen size={15} /> نور يومك وطمأنينة قلبك</span><h2>الأذكار والرقية الشرعية</h2><p>نصوص موسعة من القرآن والسنة، مع قراءة صوتية محلية تعمل دون الحاجة إلى اتصال داخل التطبيق.</p></div><div className="adhkar-hero-symbol">{tab === 'morning' ? <Sun size={55} /> : tab === 'evening' ? <Moon size={55} /> : <ShieldCheck size={55} />}</div></header>
+    <header className="adhkar-hero"><div><span className="adhkar-eyebrow"><BookOpen size={15} /> نور يومك وطمأنينة قلبك</span><h2>الأذكار والرقية الشرعية</h2><p>واجهة Azcar الموسعة مع عدّاد مستقل، تقدم محفوظ، قراءة صوتية وتذكيرات Android.</p></div><div className="adhkar-hero-symbol">{tab === 'morning' ? <Sun size={55} /> : tab === 'evening' ? <Moon size={55} /> : <ShieldCheck size={55} />}</div></header>
     <div className="adhkar-tabs" role="tablist"><button type="button" className={tab === 'morning' ? 'active' : ''} onClick={() => setTab('morning')}><Sun size={18} /> أذكار الصباح</button><button type="button" className={tab === 'evening' ? 'active' : ''} onClick={() => setTab('evening')}><Moon size={18} /> أذكار المساء</button><button type="button" className={tab === 'ruqyah' ? 'active' : ''} onClick={() => setTab('ruqyah')}><ShieldCheck size={18} /> الرقية الشرعية</button></div>
-    <section className="adhkar-toolbar"><div><span className="section-kicker">{title}</span><h3>{completed} من {list.length} مكتملة</h3></div><div className="adhkar-actions"><button type="button" onClick={readAll}>{speaking ? <VolumeX size={16} /> : <Volume2 size={16} />} {speaking ? 'إيقاف القراءة' : 'قراءة صوتية'}</button><button type="button" onClick={() => onProgressChange({ ...progress, [tab]: [] })}><RotateCcw size={15} /> إعادة</button></div></section>
+    <section className="adhkar-toolbar"><div><span className="section-kicker">{title}</span><h3>{completed} من {list.length} مكتملة</h3></div><div className="adhkar-actions"><button type="button" onClick={readAll}>{speaking ? <VolumeX size={16} /> : <Volume2 size={16} />} {speaking ? 'إيقاف القراءة' : 'قراءة صوتية'}</button><button type="button" onClick={resetAll}><RotateCcw size={15} /> إعادة</button></div></section>
     <div className="adhkar-progress"><span style={{ width: `${list.length ? completed / list.length * 100 : 0}%` }} /></div>
-    <div className="adhkar-list">{list.map((item) => <article className={`adhkar-card ${done.includes(item.id) ? 'adhkar-done' : ''}`} key={item.id}><button type="button" className="adhkar-check" onClick={() => toggleItem(item.id)} aria-label={`تحديد ${item.text}`}>{done.includes(item.id) ? <Check size={20} /> : <span />}</button><div className="adhkar-card-copy"><p>{item.text}</p>{item.source && <small>{item.source}</small>}</div><span className="adhkar-count">{item.count} {item.count === 1 ? 'مرة' : 'مرات'}</span><button type="button" className="adhkar-read-one" aria-label="قراءة النص" onClick={() => { setSpeaking(speak(item.text)); }}><Play size={15} fill="currentColor" /></button></article>)}</div>
+    <div className="adhkar-list">{list.map((item, index) => { const current = Math.min(counts[item.id] ?? 0, item.count); const done = current >= item.count; return <article className={`adhkar-card ${done ? 'adhkar-done' : ''}`} key={item.id}>
+      <span className="adhkar-index">{index + 1}</span><div className="adhkar-card-copy"><p>{item.text}</p>{item.source && <small>{item.source}</small>}</div><div className="adhkar-counter-wrap"><button type="button" className={`adhkar-counter ${done ? 'complete' : ''}`} onClick={() => increment(item)} disabled={done} aria-label={`تكرار الذكر ${current} من ${item.count}`}>{done ? <Check size={20} /> : <><strong>{current}</strong><small>/ {item.count}</small></>}</button>{current > 0 && !done && <button type="button" className="adhkar-reset-one" onClick={() => resetItem(item)} aria-label="إعادة عداد الذكر"><RotateCcw size={13} /></button>}</div><button type="button" className="adhkar-read-one" aria-label="قراءة النص" onClick={() => setSpeaking(speak(item.text))}><Play size={15} fill="currentColor" /></button>
+    </article>; })}</div>
     {tab !== 'ruqyah' && <section className="adhkar-reminder"><div className="adhkar-reminder-icon"><Bell size={20} /></div><div className="adhkar-reminder-copy"><span className="section-kicker">تنبيه لطيف</span><h3>تذكير {title}</h3><p>اختاري موعدًا ليظهر التذكير في الهاتف عند توفر إشعارات Android.</p></div><label className="adhkar-switch"><input type="checkbox" checked={reminder.enabled} onChange={(event) => setReminder({ enabled: event.target.checked })} /><span /></label><input className="adhkar-time" type="time" value={reminder.time} disabled={!reminder.enabled} onChange={(event) => setReminder({ time: event.target.value })} /></section>}
-    {tab === 'ruqyah' && <p className="adhkar-note">الرقية الشرعية دعاء وقراءة من القرآن والسنة، والشفاء بيد الله وحده. لا تغني عن مراجعة الطبيب عند الحاجة، وتجنبي أي نص أو ممارسة فيها شرك أو ضرر.</p>}
-    {tab !== 'ruqyah' && <p className="adhkar-note">تم توسيع الأذكار من مصادر عربية موثوقة، مع مراعاة اختلاف صيغ بعض الروايات. راجعي النص مع مصدر موثوق عند التعليم أو الحفظ.</p>}
+    {tab === 'ruqyah' && <p className="adhkar-note">الرقية الشرعية دعاء وقراءة من القرآن والسنة، والشفاء بيد الله وحده. لا تغني عن مراجعة الطبيب عند الحاجة.</p>}
+    {tab !== 'ruqyah' && <p className="adhkar-note">يتم حفظ كل ضغطة وعداد داخل حالة التطبيق، ثم تمريرها إلى AndroidBridge.saveState لتبقى محفوظة بعد إغلاق التطبيق.</p>}
   </section>;
 }
