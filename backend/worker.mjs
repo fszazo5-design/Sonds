@@ -9,6 +9,9 @@ import {
 
 const MAX_REQUEST_BYTES = 800 * 1024;
 const MAX_EVENT_PAYLOAD_BYTES = 24 * 1024;
+const MAX_ASSISTANT_MESSAGE_BYTES = 16 * 1024;
+const ASSISTANT_API_URL = 'https://raqa-1zhm.vercel.app/api/chatController';
+const ASSISTANT_NAMES = ['آنسة سندس', 'العبقرية سندس', 'الدكتورة سندس', 'العالمة سندس', 'المثقفة سندس'];
 let cachedConnectionString;
 let cachedSql;
 
@@ -63,6 +66,101 @@ async function parseIdentity(body) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(deviceSecret));
   const secretHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
   return { deviceId, secretHash };
+}
+
+function assistantOpening(text) {
+  const clean = String(text ?? '').trim();
+  if (!clean) return 'آنسة سندس: أنا هنا لمساعدتك. اطرحي سؤالك من فضلك.';
+  if (ASSISTANT_NAMES.some((name) => clean.startsWith(name))) return clean;
+  return `${ASSISTANT_NAMES[Math.floor(Math.random() * ASSISTANT_NAMES.length)]}: ${clean}`;
+}
+
+function assistantConversationId(value) {
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value) ? value : null;
+}
+
+async function handleAssistantChat(request, env, cors) {
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+  if (request.method !== 'POST') {
+    cors.set('Allow', 'POST, OPTIONS');
+    return jsonResponse({ error: 'method_not_allowed' }, 405, cors);
+  }
+  if (!String(request.headers.get('Content-Type') ?? '').toLowerCase().startsWith('application/json')) {
+    return jsonResponse({ error: 'content_type_must_be_json' }, 415, cors);
+  }
+  const body = await readJson(request);
+  const { deviceId, secretHash } = await parseIdentity(body);
+  const message = text(body.message).trim();
+  if (!message) return jsonResponse({ error: 'message_required' }, 400, cors);
+  if (new TextEncoder().encode(message).byteLength > MAX_ASSISTANT_MESSAGE_BYTES) return jsonResponse({ error: 'message_too_large' }, 413, cors);
+
+  const sql = getSql(env);
+  const [authorizedDevice] = await sql`
+    SELECT 1 FROM public.sonds_device_sync
+    WHERE device_id = ${deviceId}::uuid AND secret_hash = ${secretHash} LIMIT 1
+  `;
+  if (!authorizedDevice) return jsonResponse({ error: 'device_key_conflict' }, 409, cors);
+
+  const requestedConversationId = assistantConversationId(body.conversationId);
+  let conversationId = requestedConversationId;
+  if (conversationId) {
+    const [ownedConversation] = await sql`
+      SELECT id FROM public.sonds_assistant_conversations
+      WHERE id = ${conversationId}::uuid AND device_id = ${deviceId}::uuid LIMIT 1
+    `;
+    if (!ownedConversation) conversationId = null;
+  }
+  if (!conversationId) {
+    const [created] = await sql`
+      INSERT INTO public.sonds_assistant_conversations (device_id)
+      VALUES (${deviceId}::uuid) RETURNING id::text AS id
+    `;
+    conversationId = created.id;
+  }
+
+  const knowledge = await sql`
+    SELECT id, title, content, source_type AS "sourceType", source_url AS "sourceUrl"
+    FROM public.sonds_assistant_knowledge
+    WHERE is_active = TRUE
+      AND search_vector @@ plainto_tsquery('simple', ${message})
+    ORDER BY ts_rank(search_vector, plainto_tsquery('simple', ${message})) DESC, updated_at DESC
+    LIMIT 5
+  `;
+  const history = await sql`
+    SELECT role, content FROM public.sonds_assistant_messages
+    WHERE conversation_id = ${conversationId}::uuid
+    ORDER BY created_at DESC LIMIT 8
+  `;
+  const historyText = history.reverse().map((item) => `${item.role === 'user' ? 'المستخدم' : 'سندس'}: ${item.content}`).join('\n');
+  const knowledgeText = knowledge.length
+    ? knowledge.map((item) => `[${item.id}] ${item.title}\n${String(item.content).slice(0, 5000)}`).join('\n\n')
+    : 'لا توجد نتيجة مطابقة في مكتبة Neon.';
+  const prompt = `أنت مساعد داخل تطبيق سندس. أجيبي بالعربية وبأسلوب لطيف وواضح. يجب أن يبدأ ردك دائمًا بأحد هذه الأسماء: ${ASSISTANT_NAMES.join('، ')}. استخدمي معلومات مكتبة Neon عندما تكون مرتبطة بالسؤال، ولا تنسبي للمكتبة معلومة غير موجودة. إذا لم توجد نتيجة مناسبة فأجيبي من معرفتك العامة، واذكري عند الحاجة أن المعلومة عامة وليست تشخيصًا طبيًا.\n\nمكتبة Neon:\n${knowledgeText}\n\nسياق المحادثة:\n${historyText || 'لا توجد رسائل سابقة.'}\n\nالسؤال الجديد:\n${message}`;
+
+  await sql`
+    INSERT INTO public.sonds_assistant_messages (conversation_id, role, content, knowledge_ids)
+    VALUES (${conversationId}::uuid, 'user', ${message}, ${knowledge.map((item) => Number(item.id))}::bigint[])
+  `;
+  let reply;
+  try {
+    const remote = await fetch(ASSISTANT_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: prompt }),
+    });
+    if (!remote.ok) throw makeError('assistant_upstream_failed', 502);
+    const payload = await remote.json().catch(() => ({}));
+    reply = assistantOpening(payload.reply ?? payload.message ?? payload.response);
+  } catch (error) {
+    if (knowledge.length) reply = assistantOpening(`وجدت لكِ هذه المعلومة في مكتبة سندس:\n\n${String(knowledge[0].content).slice(0, 5000)}`);
+    else throw error;
+  }
+  await sql`
+    INSERT INTO public.sonds_assistant_messages (conversation_id, role, content, knowledge_ids)
+    VALUES (${conversationId}::uuid, 'assistant', ${reply}, ${knowledge.map((item) => Number(item.id))}::bigint[])
+  `;
+  await sql`UPDATE public.sonds_assistant_conversations SET updated_at = NOW() WHERE id = ${conversationId}::uuid`;
+  return jsonResponse({ conversationId, reply, sources: knowledge.map((item) => ({ id: Number(item.id), title: item.title, sourceType: item.sourceType, sourceUrl: item.sourceUrl })) }, 200, cors);
 }
 
 function getSql(env) {
@@ -631,6 +729,15 @@ export default {
         const status = Number.isInteger(error?.statusCode) ? error.statusCode : 503;
         if (status >= 500) console.error('Neon game image request failed; verify Worker secret and game image migration.');
         return jsonResponse({ error: error?.message ?? (status === 503 ? 'game_image_service_unavailable' : 'game_image_request_failed') }, status, cors.headers);
+      }
+    }
+    if (url.pathname === '/v1/assistant/chat') {
+      try {
+        return await handleAssistantChat(request, env, cors.headers);
+      } catch (error) {
+        const status = Number.isInteger(error?.statusCode) ? error.statusCode : 503;
+        if (status >= 500) console.error('Assistant request failed; verify Neon migration and upstream AI endpoint.');
+        return jsonResponse({ error: status === 503 ? 'assistant_service_unavailable' : (error?.message ?? 'assistant_request_failed') }, status, cors.headers);
       }
     }
     if (url.pathname !== '/v1/sync') return jsonResponse({ error: 'not_found' }, 404, cors.headers);

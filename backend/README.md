@@ -8,12 +8,13 @@
 
 ## الملفات
 
-- `worker.mjs`: Cloudflare Worker، فيه `GET /health` و`POST /v1/sync` و`GET /v1/media` و`GET /v1/media/:id`، و`GET /v1/game-end-ringtone` لبث رنة نهاية الجولة من Neon مع دعم Range، إضافة إلى رفع وحذف صور الألعاب عبر Cloudinary.
+- `worker.mjs`: Cloudflare Worker، فيه `GET /health` و`POST /v1/sync` و`POST /v1/assistant/chat` للمساعد الذكي، و`GET /v1/media` و`GET /v1/media/:id`، و`GET /v1/game-end-ringtone` لبث رنة نهاية الجولة من Neon مع دعم Range، إضافة إلى رفع وحذف صور الألعاب عبر Cloudinary.
 - `server.mjs`: بديل Node.js مستقل، غير لازم لنشر Cloudflare.
 - `migrations/001_create_device_sync.sql`: migration قابل لإعادة التشغيل؛ ينشئ جدولًا جديدًا وفهرسًا ولا يعدّل جداول أخرى.
 - `migrations/004_create_sonds_video_library.sql`: ينشئ جدول مكتبة الفيديوهات بصورة إضافية وآمنة.
 - `migrations/005_create_sonds_game_images.sql`: ترحيل سابق لتخزين الصور داخل Neon؛ الرفع الحالي يستخدم Cloudinary ولا يضيف بايتات جديدة إلى Neon، ومسار الحذف ينظف أي صف قديم للصورة.
 - `migrations/006_create_sonds_audio_assets.sql`: ينشئ مخزنًا صغيرًا لصوت نهاية اللعبة، يحتفظ بنسخة MP3 وبعنوان Cloudinary وبصمة SHA-256.
+- `migrations/008_create_sonds_assistant.sql`: ينشئ مكتبة معرفة قابلة لاستقبال نصوص PDF والبيانات، مع جداول المحادثات والرسائل المرتبطة بكل جهاز.
 - `scripts/upload-game-end-audio.mjs`: يرفع ملف MP3 إلى Cloudinary ويحدث صف نغمة اللعبة في Neon عبر إجراء GitHub Actions يدوي.
 - `video-manifest.json` و`../scripts/import-neon-videos.mjs`: فهرس ورفع تكراري آمن لفيديوهات المستودع إلى Neon.
 - `sync-core.mjs`: تحقق مشترك من بيانات الأجهزة وحجم الخطة.
@@ -42,6 +43,19 @@
 1. شغّلي **Actions → Upload Sundus videos to Neon → Run workflow**. ينشئ الإجراء جدول `public.sonds_video_library` إذا لم يكن موجودًا، ثم يرفع ملفات MP4 الستة ويحدّثها حسب المعرّف دون حذف السجلات الأخرى.
 2. شغّلي **Actions → Deploy Sonds Cloudflare API → Run workflow** لنشر مسارات الفيديو الجديدة بعد تجهيز الجدول.
 3. ينشر دمج الواجهة تلقائيًا حزمة **Publish Android UI OTA to GitHub Releases**؛ افتحي التطبيق بعد اكتمالها ليحمّل التحديث.
+
+## مساعد الآنسة سندس الذكي
+
+يستخدم التطبيق المسار `POST /v1/assistant/chat` بدل استدعاء خدمة الذكاء من الهاتف مباشرة. يتحقق Worker من هوية تثبيت التطبيق، يبحث أولًا في `sonds_assistant_knowledge`، يرسل النتائج المطابقة كسياق إلى `https://raqa-1zhm.vercel.app/api/chatController`، ثم يحفظ رسالة المستخدم والرد في `sonds_assistant_messages`. إذا لم توجد نتيجة في المكتبة، يستمر الرد من الذكاء العام. ويُفرض على الرد أن يبدأ باسم من أسماء سندس المحددة في Worker.
+
+لإضافة معرفة أو محتوى PDF بعد استخراج النص منه، أضيفي صفًا إلى جدول المعرفة:
+
+```sql
+INSERT INTO public.sonds_assistant_knowledge (title, content, source_type, mime_type, source_url)
+VALUES ('دليل التغذية', 'النص المستخرج من الملف أو البيانات المنظمة...', 'pdf', 'application/pdf', NULL);
+```
+
+نفّذي migration رقم `008` أولًا، ثم انشري Worker. لا تضعي `NEON_DATABASE_URL` أو أي سر داخل React أو APK؛ الواجهة تستخدم فقط عنوان Worker العام الموجود في `VITE_NEON_API_URL`.
 
 ## تفعيل المزامنة في الواجهة بعد نجاح Worker
 

@@ -43,6 +43,8 @@ test('supports allowed preflight requests and the sync HTTP methods', async () =
   assert.equal(mediaOptions.status, 204);
   assert.match(mediaOptions.headers.get('Access-Control-Allow-Methods'), /GET/);
   assert.match(mediaOptions.headers.get('Access-Control-Allow-Headers'), /Range/);
+  const assistantOptions = await worker.fetch(request('/v1/assistant/chat', { method: 'OPTIONS' }), {});
+  assert.equal(assistantOptions.status, 204);
 });
 
 test('rejects unsupported methods and paths without a database call', async () => {
@@ -58,6 +60,17 @@ test('rejects bad identity and returns service unavailable when Neon is not conf
   const missingSecret = await worker.fetch(request('/v1/sync', { method: 'POST', body: { action: 'pull', deviceId, deviceSecret } }), {});
   assert.equal(missingSecret.status, 503);
   assert.deepEqual(await missingSecret.json(), { error: 'sync_service_unavailable' });
+});
+
+test('assistant route validates input and stays server-side when Neon is not configured', async () => {
+  const invalid = await worker.fetch(request('/v1/assistant/chat', { method: 'POST', body: { message: 'مرحبا' } }), {});
+  assert.equal(invalid.status, 400);
+  const unavailable = await worker.fetch(request('/v1/assistant/chat', {
+    method: 'POST',
+    body: { deviceId, deviceSecret, message: 'مرحبا' },
+  }), {});
+  assert.equal(unavailable.status, 503);
+  assert.deepEqual(await unavailable.json(), { error: 'assistant_service_unavailable' });
 });
 
 test('video API requires a configured Neon connection before querying video data', async () => {
