@@ -1,8 +1,7 @@
 name: Build Android APK
 
 on:
-  push:
-    tags: ['v*']
+  # لا يتم بناء APK مع تحديثات الواجهة؛ استخدم workflow_dispatch عند طلب APK صراحةً.
   workflow_dispatch:
     inputs:
       release_tag:
