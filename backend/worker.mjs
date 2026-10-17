@@ -163,6 +163,39 @@ async function handleAssistantChat(request, env, cors) {
   return jsonResponse({ conversationId, reply, sources: knowledge.map((item) => ({ id: Number(item.id), title: item.title, sourceType: item.sourceType, sourceUrl: item.sourceUrl })) }, 200, cors);
 }
 
+async function handleSundusWellbeing(request, env, cors, url) {
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+  const body = request.method === 'GET'
+    ? { deviceId: url.searchParams.get('deviceId'), deviceSecret: url.searchParams.get('deviceSecret') }
+    : await readJson(request);
+  const { deviceId, secretHash } = await parseIdentity(body);
+  const sql = getSql(env);
+  const [authorized] = await sql`SELECT 1 FROM public.sonds_device_sync WHERE device_id = ${deviceId}::uuid AND secret_hash = ${secretHash} LIMIT 1`;
+  if (!authorized) return jsonResponse({ error: 'device_key_conflict' }, 409, cors);
+
+  if (request.method === 'GET') {
+    const rows = await sql`
+      SELECT id, entry_type AS "entryType", mood_key AS "moodKey", mood_score AS "moodScore", content, created_at::text AS "createdAt"
+      FROM public.sonds_sundus_entries WHERE device_id = ${deviceId}::uuid ORDER BY created_at DESC LIMIT 200
+    `;
+    return jsonResponse({ moods: rows.filter((row) => row.entryType === 'mood'), gratitudes: rows.filter((row) => row.entryType === 'gratitude') }, 200, cors);
+  }
+  if (request.method !== 'POST') { cors.set('Allow', 'GET, POST, OPTIONS'); return jsonResponse({ error: 'method_not_allowed' }, 405, cors); }
+  const entryType = text(body.entryType);
+  const content = text(body.content).trim();
+  if (!['mood', 'gratitude'].includes(entryType) || new TextEncoder().encode(content).byteLength > 2000) return jsonResponse({ error: 'invalid_wellbeing_entry' }, 400, cors);
+  if (entryType === 'gratitude' && !content) return jsonResponse({ error: 'gratitude_content_required' }, 400, cors);
+  const moodKey = text(body.moodKey).slice(0, 40);
+  const moodScore = integer(body.moodScore);
+  if (entryType === 'mood' && (!moodKey || moodScore < 1 || moodScore > 5)) return jsonResponse({ error: 'invalid_mood' }, 400, cors);
+  const [entry] = await sql`
+    INSERT INTO public.sonds_sundus_entries (device_id, entry_type, mood_key, mood_score, content)
+    VALUES (${deviceId}::uuid, ${entryType}, ${entryType === 'mood' ? moodKey : null}, ${entryType === 'mood' ? moodScore : null}, ${content})
+    RETURNING id, mood_key AS "moodKey", mood_score AS "moodScore", content, created_at::text AS "createdAt"
+  `;
+  return jsonResponse({ ...entry, ...(entryType === 'mood' ? { moodKey, moodScore } : {}) }, 201, cors);
+}
+
 function getSql(env) {
   if (!env.NEON_DATABASE_URL) throw makeError('database_not_configured', 503);
   if (cachedSql === undefined || cachedConnectionString !== env.NEON_DATABASE_URL) {
@@ -738,6 +771,21 @@ export default {
         const status = Number.isInteger(error?.statusCode) ? error.statusCode : 503;
         if (status >= 500) console.error('Assistant request failed; verify Neon migration and upstream AI endpoint.');
         return jsonResponse({ error: status === 503 ? 'assistant_service_unavailable' : (error?.message ?? 'assistant_request_failed') }, status, cors.headers);
+      }
+    }
+    if (url.pathname === '/v1/sundus/wellbeing' || url.pathname === '/v1/sundus/moods' || url.pathname === '/v1/sundus/gratitude') {
+      try {
+        const routeType = url.pathname.endsWith('/moods') ? 'mood' : url.pathname.endsWith('/gratitude') ? 'gratitude' : null;
+        if (routeType && request.method === 'POST') {
+          const originalJson = await readJson(request);
+          originalJson.entryType = routeType;
+          request = new Request(request, { body: JSON.stringify(originalJson), headers: request.headers });
+        }
+        return await handleSundusWellbeing(request, env, cors.headers, url);
+      } catch (error) {
+        const status = Number.isInteger(error?.statusCode) ? error.statusCode : 503;
+        if (status >= 500) console.error('Sundus wellbeing request failed; verify the Neon migration.');
+        return jsonResponse({ error: status === 503 ? 'sundus_wellbeing_service_unavailable' : (error?.message ?? 'sundus_wellbeing_request_failed') }, status, cors.headers);
       }
     }
     if (url.pathname !== '/v1/sync') return jsonResponse({ error: 'not_found' }, 404, cors.headers);
