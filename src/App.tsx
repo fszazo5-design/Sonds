@@ -77,8 +77,8 @@ type Reward = {
   unlocked: boolean;
 };
 
-type AdhkarProgress = { morning: Record<string, number>; evening: Record<string, number>; ruqyah: Record<string, number> };
-type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; deletedGameIds?: string[]; gameReminders?: GameReminderSettings; water?: WaterTrackingData; adhkarSettings?: AdhkarSettings; adhkarProgress?: AdhkarProgress | { morning?: string[] | Record<string, number>; evening?: string[] | Record<string, number>; ruqyah?: string[] | Record<string, number> }; mealMessages?: Record<string, string>; theme?: ThemeSettings; privateCards?: PrivateCard[]; cloudSync?: LocalSyncIdentity | null; modifiedAt?: number; achievementVersion?: number };
+type AdhkarProgress = { morning: Record<string, number>; evening: Record<string, number>; afterPrayer: Record<string, number>; ruqyah: Record<string, number> };
+type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; deletedGameIds?: string[]; gameReminders?: GameReminderSettings; water?: WaterTrackingData; adhkarSettings?: AdhkarSettings; adhkarProgress?: AdhkarProgress | { morning?: string[] | Record<string, number>; evening?: string[] | Record<string, number>; afterPrayer?: string[] | Record<string, number>; ruqyah?: string[] | Record<string, number> }; mealMessages?: Record<string, string>; theme?: ThemeSettings; privateCards?: PrivateCard[]; cloudSync?: LocalSyncIdentity | null; modifiedAt?: number; achievementVersion?: number };
 type CloudSyncStatus = 'local' | 'pending' | 'syncing' | 'synced' | 'error';
 
 const defaultMeals: Meal[] = [
@@ -160,7 +160,7 @@ const normalizeAdhkarCounts = (value: unknown): AdhkarProgress => {
     return Object.fromEntries(Object.entries(section).filter(([, count]) => typeof count === 'number' && Number.isFinite(count)).map(([id, count]) => [id, Math.max(0, count as number)]));
   };
   const candidate = value && typeof value === 'object' ? value as Record<string, unknown> : {};
-  return { morning: convert(candidate.morning), evening: convert(candidate.evening), ruqyah: convert(candidate.ruqyah) };
+  return { morning: convert(candidate.morning), evening: convert(candidate.evening), afterPrayer: convert(candidate.afterPrayer), ruqyah: convert(candidate.ruqyah) };
 };
 
 const defaultTheme: ThemeSettings = { primary: '#ff007f', secondary: '#00cfe8', surface: '#fff8fc', text: '#34223f', card: '#ffffff', success: '#00ce76', accent: '#ffea00' };

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Bell, BookOpen, Check, ChevronRight, Moon, Play, RotateCcw, ShieldCheck, Sun, Volume2, VolumeX } from 'lucide-react';
+import { AlarmClock, Check, LoaderCircle, Moon, RotateCcw, Sunrise, WifiOff } from 'lucide-react';
+import { afterPrayerAdhkar, eveningAdhkar, morningAdhkar, type Dhikr, type DhikrCategory } from '../data/azcarAdhkar';
 
 export type AdhkarSettings = {
   morningEnabled: boolean;
@@ -8,101 +9,71 @@ export type AdhkarSettings = {
   eveningTime: string;
 };
 
-type AdhkarCounts = { morning: Record<string, number>; evening: Record<string, number>; ruqyah: Record<string, number> };
+type AdhkarCounts = { morning: Record<string, number>; evening: Record<string, number>; afterPrayer: Record<string, number>; ruqyah: Record<string, number> };
 type Props = { active: boolean; settings: AdhkarSettings; progress: AdhkarCounts; onSettingsChange: (settings: AdhkarSettings) => void; onProgressChange: (progress: AdhkarCounts) => void; onBack: () => void };
-type AdhkarItem = { id: string; text: string; count: number; source?: string };
-type Tab = keyof AdhkarCounts;
+type Filter = DhikrCategory;
 
-const morning: AdhkarItem[] = [
-  { id: 'morning-ayatul-kursi', text: 'اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ ۚ لَا تَأْخُذُهُ سِنَةٌ وَلَا نَوْمٌ ۚ لَهُ مَا فِي السَّمَاوَاتِ وَمَا فِي الْأَرْضِ ۗ مَنْ ذَا الَّذِي يَشْفَعُ عِنْدَهُ إِلَّا بِإِذْنِهِ ۚ يَعْلَمُ مَا بَيْنَ أَيْدِيهِمْ وَمَا خَلْفَهُمْ ۖ وَلَا يُحِيطُونَ بِشَيْءٍ مِنْ عِلْمِهِ إِلَّا بِمَا شَاءَ ۚ وَسِعَ كُرْسِيُّهُ السَّمَاوَاتِ وَالْأَرْضَ ۖ وَلَا يَئُودُهُ حِفْظُهُمَا ۚ وَهُوَ الْعَلِيُّ الْعَظِيمُ.', count: 1, source: 'البقرة: 255' },
-  { id: 'morning-1', text: 'أصبحنا وأصبح الملك لله، والحمد لله، لا إله إلا الله وحده لا شريك له، له الملك وله الحمد وهو على كل شيء قدير. رب أسألك خير ما في هذا اليوم وخير ما بعده، وأعوذ بك من شر ما في هذا اليوم وشر ما بعده، رب أعوذ بك من الكسل وسوء الكبر، رب أعوذ بك من عذاب في النار وعذاب في القبر.', count: 1, source: 'رواه مسلم' },
-  { id: 'morning-2', text: 'اللهم بك أصبحنا وبك أمسينا، وبك نحيا وبك نموت وإليك النشور.', count: 1, source: 'رواه الترمذي' },
-  { id: 'morning-3', text: 'اللهم أنت ربي لا إله إلا أنت، خلقتني وأنا عبدك، وأنا على عهدك ووعدك ما استطعت، أعوذ بك من شر ما صنعت، أبوء لك بنعمتك علي، وأبوء بذنبي فاغفر لي، فإنه لا يغفر الذنوب إلا أنت.', count: 1, source: 'سيد الاستغفار، رواه البخاري' },
-  { id: 'morning-4', text: 'رضيت بالله ربًا، وبالإسلام دينًا، وبمحمد صلى الله عليه وسلم نبيًا.', count: 3, source: 'رواه أبو داود والترمذي' },
-  { id: 'morning-5', text: 'بسم الله الذي لا يضر مع اسمه شيء في الأرض ولا في السماء وهو السميع العليم.', count: 3, source: 'رواه أبو داود والترمذي' },
-  { id: 'morning-6', text: 'اللهم إني أسألك العفو والعافية في الدنيا والآخرة، اللهم إني أسألك العفو والعافية في ديني ودنياي وأهلي ومالي، اللهم استر عوراتي وآمن روعاتي، واحفظني من بين يدي ومن خلفي وعن يميني وعن شمالي ومن فوقي، وأعوذ بعظمتك أن أغتال من تحتي.', count: 1, source: 'رواه أبو داود وابن ماجه' },
-  { id: 'morning-7', text: 'اللهم عافني في بدني، اللهم عافني في سمعي، اللهم عافني في بصري، لا إله إلا أنت. اللهم إني أعوذ بك من الكفر والفقر، وأعوذ بك من عذاب القبر، لا إله إلا أنت.', count: 3, source: 'رواه أبو داود' },
-  { id: 'morning-8', text: 'حسبي الله لا إله إلا هو عليه توكلت وهو رب العرش العظيم.', count: 7, source: 'التوبة: 129' },
-  { id: 'morning-9', text: 'اللهم فاطر السماوات والأرض، عالم الغيب والشهادة، رب كل شيء ومليكه، أشهد أن لا إله إلا أنت، أعوذ بك من شر نفسي، ومن شر الشيطان وشركه، وأن أقترف على نفسي سوءًا أو أجره إلى مسلم.', count: 1, source: 'رواه الترمذي' },
-  { id: 'morning-10', text: 'اللهم إني أصبحت أشهدك وأشهد حملة عرشك وملائكتك وجميع خلقك، أنك أنت الله لا إله إلا أنت وحدك لا شريك لك، وأن محمدًا عبدك ورسولك.', count: 4, source: 'رواه أبو داود' },
-  { id: 'morning-11', text: 'لا إله إلا الله وحده لا شريك له، له الملك وله الحمد، يحيي ويميت وهو على كل شيء قدير.', count: 10, source: 'رواه ابن حبان' },
-  { id: 'morning-12', text: 'سبحان الله وبحمده.', count: 100, source: 'رواه مسلم' },
-  { id: 'morning-13', text: 'سبحان الله وبحمده، عدد خلقه، ورضا نفسه، وزنة عرشه، ومداد كلماته.', count: 3, source: 'رواه مسلم' },
-  { id: 'morning-14', text: 'قراءة سور الإخلاص والفلق والناس.', count: 3, source: 'رواه الترمذي' },
+const filters: { key: Filter; label: string; icon: typeof Sunrise }[] = [
+  { key: 'morning', label: 'الصباح', icon: Sunrise },
+  { key: 'evening', label: 'المساء', icon: Moon },
+  { key: 'after_prayer', label: 'بعد الصلاة', icon: AlarmClock },
 ];
-
-const evening: AdhkarItem[] = morning.map((item) => ({ ...item, id: item.id.replace('morning', 'evening'), text: item.text.split('أصبحنا').join('أمسينا').split('أصبح').join('أمسى').split('هذا اليوم').join('هذه الليلة').split('ما بعده').join('ما بعدها').split('النشور').join('المصير').split('أصبحت').join('أمسيت'), }));
-evening[9] = { ...evening[9], text: 'اللهم إني أمسيت أشهدك وأشهد حملة عرشك وملائكتك وجميع خلقك، أنك أنت الله لا إله إلا أنت وحدك لا شريك لك، وأن محمدًا عبدك ورسولك.' };
-
-const constRuqyah: AdhkarItem[] = [
-  { id: 'ruqyah-fatiha', text: 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ. الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ. الرَّحْمَٰنِ الرَّحِيمِ. مَالِكِ يَوْمِ الدِّينِ. إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ. اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ. صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ وَلَا الضَّالِّينَ.', count: 7, source: 'سورة الفاتحة' },
-  { id: 'ruqyah-kursi', text: morning[0].text, count: 1, source: 'البقرة: 255' },
-  { id: 'ruqyah-baqara-end', text: 'آمَنَ الرَّسُولُ بِمَا أُنْزِلَ إِلَيْهِ مِنْ رَبِّهِ وَالْمُؤْمِنُونَ ۚ كُلٌّ آمَنَ بِاللَّهِ وَمَلَائِكَتِهِ وَكُتُبِهِ وَرُسُلِهِ لَا نُفَرِّقُ بَيْنَ أَحَدٍ مِنْ رُسُلِهِ ۚ وَقَالُوا سَمِعْنَا وَأَطَعْنَا ۖ غُفْرَانَكَ رَبَّنَا وَإِلَيْكَ الْمَصِيرُ. لَا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا وُسْعَهَا ۚ لَهَا مَا كَسَبَتْ وَعَلَيْهَا مَا اكْتَسَبَتْ ۗ رَبَّنَا لَا تُؤَاخِذْنَا إِنْ نَسِينَا أَوْ أَخْطَأْنَا ۚ رَبَّنَا وَلَا تَحْمِلْ عَلَيْنَا إِصْرًا كَمَا حَمَلْتَهُ عَلَى الَّذِينَ مِنْ قَبْلِنَا ۚ رَبَّنَا وَلَا تُحَمِّلْنَا مَا لَا طَاقَةَ لَنَا بِهِ ۖ وَاعْفُ عَنَّا وَاغْفِرْ لَنَا وَارْحَمْنَا ۚ أَنْتَ مَوْلَانَا فَانْصُرْنَا عَلَى الْقَوْمِ الْكَافِرِينَ.', count: 1, source: 'آخر آيتين من البقرة: 285-286' },
-  { id: 'ruqyah-ikhlas', text: 'قُلْ هُوَ اللَّهُ أَحَدٌ. اللَّهُ الصَّمَدُ. لَمْ يَلِدْ وَلَمْ يُولَدْ. وَلَمْ يَكُنْ لَهُ كُفُوًا أَحَدٌ.', count: 3, source: 'سورة الإخلاص' },
-  { id: 'ruqyah-falaq', text: 'قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ. مِنْ شَرِّ مَا خَلَقَ. وَمِنْ شَرِّ غَاسِقٍ إِذَا وَقَبَ. وَمِنْ شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ. وَمِنْ شَرِّ حَاسِدٍ إِذَا حَسَدَ.', count: 3, source: 'سورة الفلق' },
-  { id: 'ruqyah-nas', text: 'قُلْ أَعُوذُ بِرَبِّ النَّاسِ. مَلِكِ النَّاسِ. إِلَٰهِ النَّاسِ. مِنْ شَرِّ الْوَسْوَاسِ الْخَنَّاسِ. الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ. مِنَ الْجِنَّةِ وَالنَّاسِ.', count: 3, source: 'سورة الناس' },
-  { id: 'ruqyah-batil', text: 'وَقُلْ جَاءَ الْحَقُّ وَزَهَقَ الْبَاطِلُ ۚ إِنَّ الْبَاطِلَ كَانَ زَهُوقًا. وَنُنَزِّلُ مِنَ الْقُرْآنِ مَا هُوَ شِفَاءٌ وَرَحْمَةٌ لِلْمُؤْمِنِينَ.', count: 1, source: 'الإسراء: 81-82' },
-  { id: 'ruqyah-musa', text: 'وَأَوْحَيْنَا إِلَىٰ مُوسَىٰ أَنْ أَلْقِ عَصَاكَ ۖ فَإِذَا هِيَ تَلْقَفُ مَا يَأْفِكُونَ. فَوَقَعَ الْحَقُّ وَبَطَلَ مَا كَانُوا يَعْمَلُونَ. فَغُلِبُوا هُنَالِكَ وَانْقَلَبُوا صَاغِرِينَ.', count: 1, source: 'الأعراف: 117-119' },
-  { id: 'ruqyah-yunus', text: 'فَلَمَّا أَلْقَوْا قَالَ مُوسَىٰ مَا جِئْتُمْ بِهِ السِّحْرُ ۖ إِنَّ اللَّهَ سَيُبْطِلُهُ ۖ إِنَّ اللَّهَ لَا يُصْلِحُ عَمَلَ الْمُفْسِدِينَ. وَيُحِقُّ اللَّهُ الْحَقَّ بِكَلِمَاتِهِ وَلَوْ كَرِهَ الْمُجْرِمُونَ.', count: 1, source: 'يونس: 81-82' },
-  { id: 'ruqyah-shifa', text: 'وَيَشْفِ صُدُورَ قَوْمٍ مُؤْمِنِينَ. وَإِذَا مَرِضْتُ فَهُوَ يَشْفِينِ. قُلْ هُوَ لِلَّذِينَ آمَنُوا هُدًى وَشِفَاءٌ.', count: 1, source: 'التوبة: 14، الشعراء: 80، فصلت: 44' },
-  { id: 'ruqyah-dua-1', text: 'أذهب الباس رب الناس، اشف وأنت الشافي، لا شفاء إلا شفاؤك، شفاء لا يغادر سقمًا.', count: 3, source: 'رواه البخاري ومسلم' },
-  { id: 'ruqyah-dua-2', text: 'باسم الله أرقيك، من كل شيء يؤذيك، من شر كل نفس أو عين حاسد، الله يشفيك، باسم الله أرقيك.', count: 3, source: 'رواه مسلم' },
-  { id: 'ruqyah-dua-3', text: 'أعوذ بكلمات الله التامات من شر ما خلق.', count: 3, source: 'رواه مسلم' },
-  { id: 'ruqyah-dua-4', text: 'أعوذ بكلمات الله التامة من كل شيطان وهامة، ومن كل عين لامة.', count: 3, source: 'رواه البخاري' },
-  { id: 'ruqyah-dua-5', text: 'أسأل الله العظيم رب العرش العظيم أن يشفيك.', count: 7, source: 'رواه أبو داود والترمذي' },
-  { id: 'ruqyah-dua-6', text: 'ضع يدك على الذي تألم من جسدك وقل: بسم الله، ثلاثًا، وقل سبع مرات: أعوذ بالله وقدرته من شر ما أجد وأحاذر.', count: 7, source: 'رواه مسلم' },
-];
-
 
 const speak = (text: string) => {
-  if (window.AndroidBridge?.speakArabic) { window.AndroidBridge.speakArabic(text); return true; }
-  if (!('speechSynthesis' in window)) return false;
+  if (window.AndroidBridge?.speakArabic) { window.AndroidBridge.speakArabic(text); return; }
+  if (!('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'ar-SA'; utterance.rate = 0.66; utterance.pitch = 1;
+  utterance.lang = 'ar-SA'; utterance.rate = 0.66;
   window.speechSynthesis.speak(utterance);
-  return true;
 };
-const stopSpeak = () => { window.AndroidBridge?.stopSpeech(); if ('speechSynthesis' in window) window.speechSynthesis.cancel(); };
 
-export default function AdhkarPage({ active, settings, progress, onSettingsChange, onProgressChange, onBack }: Props) {
-  const [tab, setTab] = useState<Tab>('morning');
-  const [speaking, setSpeaking] = useState(false);
-  const list = tab === 'morning' ? morning : tab === 'evening' ? evening : constRuqyah;
-  const counts = progress[tab] ?? {};
-  const completed = list.filter((item) => (counts[item.id] ?? 0) >= item.count).length;
-  const title = tab === 'morning' ? 'أذكار الصباح' : tab === 'evening' ? 'أذكار المساء' : 'الرقية الشرعية';
-  const reminder = tab === 'morning' ? { enabled: settings.morningEnabled, time: settings.morningTime } : { enabled: settings.eveningEnabled, time: settings.eveningTime };
-  const setReminder = (patch: Partial<typeof reminder>) => onSettingsChange(tab === 'morning' ? { ...settings, morningEnabled: patch.enabled ?? reminder.enabled, morningTime: patch.time ?? reminder.time } : { ...settings, eveningEnabled: patch.enabled ?? reminder.enabled, eveningTime: patch.time ?? reminder.time });
+function AzcarDhikrCard({ dhikr, index, counts, onChange }: { dhikr: Dhikr; index: number; counts: Record<string, number>; onChange: (id: string, value: number) => void }) {
+  const current = counts[dhikr.id] ?? 0;
+  const isComplete = current >= dhikr.count;
+  const percent = Math.min((current / dhikr.count) * 100, 100);
+  const increment = () => { if (!isComplete) onChange(dhikr.id, current + 1); };
+  const reset = () => onChange(dhikr.id, 0);
+  return <article className={`azcar-dhikr-card ${isComplete ? 'azcar-dhikr-complete' : ''}`} style={{ animationDelay: `${index * 60}ms` }}>
+    <div className="azcar-dhikr-top"><span className="azcar-dhikr-index">{index + 1}</span>{isComplete && <span className="azcar-dhikr-done"><Check size={14} strokeWidth={3} /> تم</span>}</div>
+    <div className="azcar-dhikr-progress"><span style={{ width: `${percent}%` }} /></div>
+    <p className="azcar-dhikr-text">{dhikr.text}</p>
+    {dhikr.virtue && <p className="azcar-dhikr-virtue">✦ {dhikr.virtue}</p>}
+    <div className="azcar-dhikr-footer">
+      <button type="button" className={`azcar-counter ${isComplete ? 'complete' : ''}`} onClick={increment} disabled={isComplete} aria-label={`تكرار الذكر ${current} من ${dhikr.count}`}>
+        {isComplete ? <Check size={26} strokeWidth={3} /> : <><strong>{current}</strong><small>/ {dhikr.count}</small></>}
+      </button>
+      <div className="azcar-dhikr-info"><p>التكرار: {dhikr.count} مرة</p>{dhikr.source && <p>المصدر: {dhikr.source}</p>}{dhikr.count >= 33 && !isComplete && <div className="azcar-mini-progress"><span style={{ width: `${percent}%` }} /></div>}</div>
+      {current > 0 && <button type="button" className="azcar-reset" onClick={reset} aria-label="إعادة"><RotateCcw size={18} /></button>}
+      <button type="button" className="azcar-speak" onClick={() => speak(dhikr.text)} aria-label="قراءة الذكر">▶</button>
+    </div>
+  </article>;
+}
+
+export default function AdhkarPage({ active, progress, onProgressChange, onBack }: Props) {
+  const [filter, setFilter] = useState<Filter>('morning');
+  const [loading] = useState(false);
+  const [offline] = useState(false);
+  const list = filter === 'morning' ? morningAdhkar : filter === 'evening' ? eveningAdhkar : afterPrayerAdhkar;
+  const key = filter === 'after_prayer' ? 'afterPrayer' : filter;
+  const counts = progress[key] ?? {};
+  const total = list.length;
+  const done = list.filter((item) => (counts[item.id] ?? 0) >= item.count).length;
+  const percent = total ? Math.round((done / total) * 100) : 0;
   const currentText = useMemo(() => list.map((item) => item.text).join(' '), [list]);
-  useEffect(() => () => stopSpeak(), []);
+  useEffect(() => () => { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); window.AndroidBridge?.stopSpeech(); }, []);
 
-  const updateCounts = (next: Record<string, number>) => onProgressChange({ ...progress, [tab]: next });
-  const increment = (item: AdhkarItem) => {
-    const current = counts[item.id] ?? 0;
-    if (current >= item.count) return;
-    updateCounts({ ...counts, [item.id]: current + 1 });
-    if (current + 1 >= item.count) setSpeaking(false);
-  };
-  const resetItem = (item: AdhkarItem) => {
-    const next = { ...counts };
-    delete next[item.id];
-    updateCounts(next);
-  };
-  const resetAll = () => updateCounts({});
-  const readAll = () => { if (speaking) { stopSpeak(); setSpeaking(false); return; } setSpeaking(speak(currentText)); window.setTimeout(() => setSpeaking(false), Math.max(3000, currentText.length * 45)); };
+  const updateCount = (id: string, value: number) => onProgressChange({ ...progress, [key]: value <= 0 ? Object.fromEntries(Object.entries(counts).filter(([itemId]) => itemId !== id)) : { ...counts, [id]: value } });
+  const readAll = () => speak(currentText);
+  const resetAll = () => onProgressChange({ ...progress, [key]: {} });
 
-  return <section hidden={!active} className="adhkar-page">
-    <button type="button" className="adhkar-back-button" onClick={onBack}><ChevronRight size={18} /> العودة إلى قائمة سندس</button>
-    <header className="adhkar-hero"><div><span className="adhkar-eyebrow"><BookOpen size={15} /> نور يومك وطمأنينة قلبك</span><h2>الأذكار والرقية الشرعية</h2><p>واجهة Azcar الموسعة مع عدّاد مستقل، تقدم محفوظ، قراءة صوتية وتذكيرات Android.</p></div><div className="adhkar-hero-symbol">{tab === 'morning' ? <Sun size={55} /> : tab === 'evening' ? <Moon size={55} /> : <ShieldCheck size={55} />}</div></header>
-    <div className="adhkar-tabs" role="tablist"><button type="button" className={tab === 'morning' ? 'active' : ''} onClick={() => setTab('morning')}><Sun size={18} /> أذكار الصباح</button><button type="button" className={tab === 'evening' ? 'active' : ''} onClick={() => setTab('evening')}><Moon size={18} /> أذكار المساء</button><button type="button" className={tab === 'ruqyah' ? 'active' : ''} onClick={() => setTab('ruqyah')}><ShieldCheck size={18} /> الرقية الشرعية</button></div>
-    <section className="adhkar-toolbar"><div><span className="section-kicker">{title}</span><h3>{completed} من {list.length} مكتملة</h3></div><div className="adhkar-actions"><button type="button" onClick={readAll}>{speaking ? <VolumeX size={16} /> : <Volume2 size={16} />} {speaking ? 'إيقاف القراءة' : 'قراءة صوتية'}</button><button type="button" onClick={resetAll}><RotateCcw size={15} /> إعادة</button></div></section>
-    <div className="adhkar-progress"><span style={{ width: `${list.length ? completed / list.length * 100 : 0}%` }} /></div>
-    <div className="adhkar-list">{list.map((item, index) => { const current = Math.min(counts[item.id] ?? 0, item.count); const done = current >= item.count; return <article className={`adhkar-card ${done ? 'adhkar-done' : ''}`} key={item.id}>
-      <span className="adhkar-index">{index + 1}</span><div className="adhkar-card-copy"><p>{item.text}</p>{item.source && <small>{item.source}</small>}</div><div className="adhkar-counter-wrap"><button type="button" className={`adhkar-counter ${done ? 'complete' : ''}`} onClick={() => increment(item)} disabled={done} aria-label={`تكرار الذكر ${current} من ${item.count}`}>{done ? <Check size={20} /> : <><strong>{current}</strong><small>/ {item.count}</small></>}</button>{current > 0 && !done && <button type="button" className="adhkar-reset-one" onClick={() => resetItem(item)} aria-label="إعادة عداد الذكر"><RotateCcw size={13} /></button>}</div><button type="button" className="adhkar-read-one" aria-label="قراءة النص" onClick={() => setSpeaking(speak(item.text))}><Play size={15} fill="currentColor" /></button>
-    </article>; })}</div>
-    {tab !== 'ruqyah' && <section className="adhkar-reminder"><div className="adhkar-reminder-icon"><Bell size={20} /></div><div className="adhkar-reminder-copy"><span className="section-kicker">تنبيه لطيف</span><h3>تذكير {title}</h3><p>اختاري موعدًا ليظهر التذكير في الهاتف عند توفر إشعارات Android.</p></div><label className="adhkar-switch"><input type="checkbox" checked={reminder.enabled} onChange={(event) => setReminder({ enabled: event.target.checked })} /><span /></label><input className="adhkar-time" type="time" value={reminder.time} disabled={!reminder.enabled} onChange={(event) => setReminder({ time: event.target.value })} /></section>}
-    {tab === 'ruqyah' && <p className="adhkar-note">الرقية الشرعية دعاء وقراءة من القرآن والسنة، والشفاء بيد الله وحده. لا تغني عن مراجعة الطبيب عند الحاجة.</p>}
-    {tab !== 'ruqyah' && <p className="adhkar-note">يتم حفظ كل ضغطة وعداد داخل حالة التطبيق، ثم تمريرها إلى AndroidBridge.saveState لتبقى محفوظة بعد إغلاق التطبيق.</p>}
+  return <section hidden={!active} className="adhkar-page azcar-page">
+    <button type="button" className="adhkar-back-button" onClick={onBack}>العودة إلى قائمة سندس</button>
+    <div className="azcar-progress-card"><div><p>تقدّمك اليوم</p><strong>{percent}%</strong></div><div><p>المكتمل</p><strong>{done} <small>/ {total}</small></strong></div><div className="azcar-progress-track"><span style={{ width: `${percent}%` }} /></div></div>
+    <div className="azcar-filters" role="tablist">{filters.map(({ key: itemKey, label, icon: Icon }) => <button type="button" key={itemKey} className={filter === itemKey ? 'active' : ''} onClick={() => setFilter(itemKey)}><Icon size={18} />{label}</button>)}</div>
+    {loading && <div className="azcar-status"><LoaderCircle size={15} /> جارٍ تحديث الأذكار من المصدر...</div>}
+    {offline && <div className="azcar-offline"><WifiOff size={15} /> تعمل الآن بالبيانات المحفوظة محلياً.</div>}
+    <div className="azcar-list">{list.map((dhikr, index) => <AzcarDhikrCard key={dhikr.id} dhikr={dhikr} index={index} counts={counts} onChange={updateCount} />)}</div>
+    <div className="azcar-actions"><button type="button" onClick={readAll}>▶ قراءة القائمة كاملة</button><button type="button" onClick={resetAll}><RotateCcw size={15} /> إعادة العدادات</button></div>
   </section>;
 }

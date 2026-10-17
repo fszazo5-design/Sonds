@@ -726,3 +726,51 @@ body { background:var(--sonds-surface); color:var(--sonds-text); }
   .assistant-fab { left: 12px; bottom: calc(78px + env(safe-area-inset-bottom)); }
   .assistant-panel { left: 12px; bottom: calc(136px + env(safe-area-inset-bottom)); height: min(600px, calc(100vh - 165px)); }
 }
+
+/* Exact Azcar-style adhkar surface */
+.azcar-page { color: #1f2937; font-family: Tajawal, system-ui, sans-serif; }
+.azcar-progress-card { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin: 0 0 20px; padding: 20px; border-radius: 18px; color: #fff; background: linear-gradient(135deg, #0d9488, #115e59); box-shadow: 0 12px 24px #0d948833; }
+.azcar-progress-card p { margin: 0 0 4px; color: #ccfbf1; font-size: 12px; opacity: .85; }
+.azcar-progress-card strong { font-size: 30px; line-height: 1; }
+.azcar-progress-card > div:nth-child(2) { text-align: end; }
+.azcar-progress-card > div:nth-child(2) strong { font-size: 24px; }
+.azcar-progress-card strong small { font-size: 14px; opacity: .6; }
+.azcar-progress-track { grid-column: 1 / -1; height: 8px; overflow: hidden; margin-top: 6px; border-radius: 999px; background: #ffffff33; }
+.azcar-progress-track span { display: block; height: 100%; border-radius: inherit; background: #fff; transition: width .5s ease; }
+.azcar-filters { display: flex; gap: 8px; margin-bottom: 20px; }
+.azcar-filters button { display: flex; flex: 1; align-items: center; justify-content: center; gap: 6px; min-height: 43px; padding: 9px 12px; border: 0; border-radius: 12px; background: #fff; color: #4b5563; font-size: 13px; font-weight: 700; box-shadow: 0 2px 9px #0f766e12; transition: .2s; }
+.azcar-filters button.active { color: #fff; background: #0d9488; box-shadow: 0 5px 14px #0d948855; }
+.azcar-filters button:active { transform: scale(.95); }
+.azcar-list { display: grid; gap: 12px; }
+.azcar-dhikr-card { position: relative; overflow: hidden; padding: 17px; border: 1px solid #e5e7eb; border-radius: 15px; background: #fff; box-shadow: 0 3px 12px #1118270c; animation: azcar-fade-up .5s ease both; }
+.azcar-dhikr-card:hover { box-shadow: 0 8px 20px #11182715; }
+.azcar-dhikr-complete { border-color: #99f6e4; }
+.azcar-dhikr-progress { position: absolute; inset: 0 0 auto; height: 3px; background: #f3f4f6; }
+.azcar-dhikr-progress span { display: block; height: 100%; background: linear-gradient(90deg, #2dd4bf, #0d9488); transition: width .3s; }
+.azcar-dhikr-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.azcar-dhikr-index, .azcar-dhikr-done { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: 800; }
+.azcar-dhikr-index { color: #0f766e; background: #ccfbf1; }
+.azcar-dhikr-done { color: #15803d; background: #dcfce7; }
+.azcar-dhikr-text { margin: 0 0 12px; color: #1f2937; font-family: Amiri, serif; font-size: calc(1.15rem * var(--font-scale, 1)); line-height: 2.1; }
+.azcar-dhikr-virtue { margin: 0 0 12px; padding: 6px 10px; border-radius: 9px; color: #c2410c; background: #fff7ed; font-size: 11px; }
+.azcar-dhikr-footer { display: flex; align-items: center; gap: 12px; }
+.azcar-counter { display: flex; width: 64px; height: 64px; flex: 0 0 auto; flex-direction: column; align-items: center; justify-content: center; border: 0; border-radius: 16px; color: #fff; background: linear-gradient(135deg, #14b8a6, #0f766e); box-shadow: 0 5px 13px #14b8a64d; transition: .2s; }
+.azcar-counter:hover:not(:disabled) { transform: scale(1.04); }
+.azcar-counter:active:not(:disabled) { transform: scale(.9); }
+.azcar-counter.complete { background: #22c55e; }
+.azcar-counter strong { font-size: 24px; line-height: 1; }
+.azcar-counter small { margin-top: 3px; font-size: 10px; opacity: .8; }
+.azcar-dhikr-info { min-width: 0; flex: 1; color: #9ca3af; font-size: 11px; line-height: 1.8; }
+.azcar-dhikr-info p { margin: 0; }
+.azcar-mini-progress { height: 6px; overflow: hidden; margin-top: 5px; border-radius: 9px; background: #f3f4f6; }
+.azcar-mini-progress span { display: block; height: 100%; border-radius: inherit; background: #2dd4bf; }
+.azcar-reset, .azcar-speak { display: grid; width: 32px; height: 32px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 9px; color: #9ca3af; background: transparent; }
+.azcar-reset:hover { color: #4b5563; background: #f3f4f6; }
+.azcar-speak { color: #0d9488; background: #ccfbf1; font-size: 12px; }
+.azcar-actions { display: flex; gap: 8px; margin-top: 18px; }
+.azcar-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 38px; padding: 0 12px; border: 0; border-radius: 10px; color: #0f766e; background: #ccfbf1; font-size: 11px; font-weight: 800; }
+.azcar-actions button:first-child { color: #fff; background: #0d9488; }
+.azcar-status, .azcar-offline { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; padding: 8px 11px; border-radius: 10px; color: #9ca3af; font-size: 11px; }
+.azcar-offline { color: #b45309; background: #fffbeb; }
+@keyframes azcar-fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 560px) { .azcar-page { padding-top: 8px; }.azcar-progress-card { padding: 17px; }.azcar-filters button { font-size: 11px; padding-inline: 6px; }.azcar-dhikr-card { padding: 14px; }.azcar-dhikr-text { font-size: calc(1.05rem * var(--font-scale, 1)); }.azcar-counter { width: 58px; height: 58px; }.azcar-actions { flex-wrap: wrap; }.azcar-actions button { flex: 1; } }
