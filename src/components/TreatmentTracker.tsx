@@ -55,6 +55,8 @@ export default function TreatmentTracker({ active, course, onChange, onBack }: P
   const removeDose = (doseId: string) => onChange({ ...course, doses: course.doses.filter((dose) => dose.id !== doseId) });
   const moveTable = (amount: number) => tableWrapRef.current?.scrollBy({ left: amount, behavior: 'smooth' });
   const startTableDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    // Let touch input use native scrolling so vertical page scroll and horizontal table swipes both work.
+    if (event.pointerType !== 'mouse') return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     if ((event.target as HTMLElement).closest('button, input, a')) return;
     const wrap = tableWrapRef.current;

@@ -851,7 +851,7 @@ body { background:var(--sonds-surface); color:var(--sonds-text); }
 .treatment-table-controls { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 13px; color: #9a8d9d; font-size: 9px; font-weight: 800; }
 .treatment-table-controls > div { display: flex; gap: 5px; }
 .treatment-table-controls button { display: grid; width: 29px; height: 29px; place-items: center; border: 1px solid #eadce8; border-radius: 8px; background: #fff7fb; color: #b5005e; }
-.treatment-table-wrap { overflow-x: auto; margin-top: 9px; border: 1px solid #eee7f0; border-radius: 13px; scroll-behavior: smooth; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; touch-action: pan-x; cursor: grab; scrollbar-color: #e58ab5 #fff3f8; scrollbar-width: thin; }
+.treatment-table-wrap { overflow-x: auto; margin-top: 9px; border: 1px solid #eee7f0; border-radius: 13px; scroll-behavior: smooth; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; cursor: grab; scrollbar-color: #e58ab5 #fff3f8; scrollbar-width: thin; }
 .treatment-table-wrap.is-dragging { cursor: grabbing; scroll-behavior: auto; user-select: none; }
 .treatment-table-wrap.is-dragging .treatment-table { pointer-events: none; }
 .treatment-table-wrap:focus-visible { outline: 2px solid #ff8bbb; outline-offset: 2px; }
