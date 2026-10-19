@@ -30,6 +30,7 @@ import {
   Star,
   ShieldCheck,
   Trophy,
+  Trash2,
   Utensils,
   Volume2,
   VolumeX,
@@ -50,6 +51,7 @@ import { ensureLocalSyncIdentity, getNeonSyncApiUrl, pullNeonSnapshot, pushNeonE
 import favoriteSongVideo from './assets/favorite-song-with-sundus.mp4';
 import startupVideo from './assets/startup-video.mp4';
 import startupIntroPoster from './assets/startup-intro-poster.jpg';
+import sundusUploadedCard from './assets/sundus-uploaded-card.jpeg';
 
 type Meal = {
   id: string;
@@ -80,7 +82,7 @@ type Reward = {
 };
 
 type AdhkarProgress = { morning: Record<string, number>; evening: Record<string, number>; afterPrayer: Record<string, number>; ruqyah: Record<string, number> };
-type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; deletedGameIds?: string[]; gameReminders?: GameReminderSettings; water?: WaterTrackingData; adhkarSettings?: AdhkarSettings; adhkarProgress?: AdhkarProgress | { morning?: string[] | Record<string, number>; evening?: string[] | Record<string, number>; afterPrayer?: string[] | Record<string, number>; ruqyah?: string[] | Record<string, number> }; mealMessages?: Record<string, string>; theme?: ThemeSettings; privateCards?: PrivateCard[]; cloudSync?: LocalSyncIdentity | null; modifiedAt?: number; achievementVersion?: number };
+type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; deletedGameIds?: string[]; gameReminders?: GameReminderSettings; water?: WaterTrackingData; adhkarSettings?: AdhkarSettings; adhkarProgress?: AdhkarProgress | { morning?: string[] | Record<string, number>; evening?: string[] | Record<string, number>; afterPrayer?: string[] | Record<string, number>; ruqyah?: string[] | Record<string, number> }; mealMessages?: Record<string, string>; theme?: ThemeSettings; privateCards?: PrivateCard[]; homeCardVisible?: boolean; cloudSync?: LocalSyncIdentity | null; modifiedAt?: number; achievementVersion?: number };
 type CloudSyncStatus = 'local' | 'pending' | 'syncing' | 'synced' | 'error';
 
 const defaultMeals: Meal[] = [
@@ -239,6 +241,7 @@ function App() {
   const [deletedGameIds, setDeletedGameIds] = useState<string[]>(() => Array.isArray(bootData.deletedGameIds) ? bootData.deletedGameIds : []);
   const [theme, setTheme] = useState<ThemeSettings>(() => ({ ...defaultTheme, ...(bootData.theme ?? {}) }));
   const [privateCards, setPrivateCards] = useState<PrivateCard[]>(() => Array.isArray(bootData.privateCards) ? bootData.privateCards : []);
+  const [homeCardVisible, setHomeCardVisible] = useState(() => bootData.homeCardVisible ?? true);
   const [gameReminders, setGameReminders] = useState<GameReminderSettings>(() => bootData.gameReminders ?? {});
   const [mealMessages, setMealMessages] = useState<Record<string, string>>(() => bootData.mealMessages ?? {});
   const [adhkarSettings, setAdhkarSettings] = useState<AdhkarSettings>(() => bootData.adhkarSettings ?? { morningEnabled: true, morningTime: '07:00', eveningEnabled: true, eveningTime: '19:00' });
@@ -281,6 +284,7 @@ function App() {
     if (Array.isArray(saved.deletedGameIds)) setDeletedGameIds(saved.deletedGameIds.filter((id): id is string => typeof id === 'string'));
     if (saved.theme && typeof saved.theme === 'object') setTheme({ ...defaultTheme, ...saved.theme });
     if (Array.isArray(saved.privateCards)) setPrivateCards(saved.privateCards);
+    if (typeof saved.homeCardVisible === 'boolean') setHomeCardVisible(saved.homeCardVisible);
     if (saved.gameReminders && typeof saved.gameReminders === 'object') setGameReminders(saved.gameReminders);
     if (saved.mealMessages && typeof saved.mealMessages === 'object' && !Array.isArray(saved.mealMessages)) setMealMessages(saved.mealMessages);
     if (saved.adhkarSettings) setAdhkarSettings(saved.adhkarSettings);
@@ -390,9 +394,10 @@ function App() {
     mealMessages,
     theme,
     privateCards,
+    homeCardVisible,
     cloudSync: syncIdentity,
     achievementVersion: ACHIEVEMENT_SYSTEM_VERSION,
-  }), [today, checked, meals, score, streak, rewards, bootData.jumpRope, activityGameStats, customActivities, deletedGameIds, gameReminders, waterData, adhkarSettings, adhkarProgress, mealMessages, theme, privateCards, syncIdentity]);
+  }), [today, checked, meals, score, streak, rewards, bootData.jumpRope, activityGameStats, customActivities, deletedGameIds, gameReminders, waterData, adhkarSettings, adhkarProgress, mealMessages, theme, privateCards, homeCardVisible, syncIdentity]);
   const currentPlanRef = useRef(currentPlan);
   currentPlanRef.current = currentPlan;
   const lastSavedPlanJsonRef = useRef(JSON.stringify(currentPlan));
@@ -638,6 +643,14 @@ function App() {
           <div className="hero-meta"><div className="date-chip"><CalendarDays size={16} /> {new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' }).format(now)}</div><div className="clock-chip"><div className="analog-clock" aria-label="ساعة متحركة"><span className="clock-hand clock-hour" style={{ transform: `rotate(${(now.getHours() % 12) * 30 + now.getMinutes() / 2}deg)` }} /><span className="clock-hand clock-minute" style={{ transform: `rotate(${now.getMinutes() * 6 + now.getSeconds() / 10}deg)` }} /><span className="clock-hand clock-second" style={{ transform: `rotate(${now.getSeconds() * 6}deg)` }} /><i /></div><div><strong>{new Intl.DateTimeFormat('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(now)}</strong><small>{nextMeal ? `الوجبة التالية: ${nextMeal.title} — ${formatMealTime(nextMeal.time)}` : 'اكتملت وجبات اليوم'}</small></div></div></div>
         </div>
       </section>
+
+      {activeNav === 'home' && homeCardVisible && <section className="home-uploaded-card" aria-labelledby="home-uploaded-card-title">
+        <div className="home-uploaded-card-heading">
+          <div><span className="section-kicker">بطاقة مرفوعة</span><h2 id="home-uploaded-card-title">رسالة جميلة لسندس</h2></div>
+          <button type="button" className="home-uploaded-card-delete" onClick={() => setHomeCardVisible(false)} aria-label="حذف الكارت" title="حذف الكارت"><Trash2 size={18} /> حذف الكارت</button>
+        </div>
+        <img src={sundusUploadedCard} alt="بطاقة برسالة لسندس" />
+      </section>}
 
       <section hidden={activeNav !== 'home'} className="jump-rope-promo games-home-promo">
         <div className="jump-rope-promo-icon"><Activity size={21} /></div>
