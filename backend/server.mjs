@@ -75,6 +75,24 @@ async function readJson(request) {
   }
 }
 
+function objectValue(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function arrayValue(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+async function saveTreatmentCourse(sql, deviceId, state) {
+  const treatment = objectValue(state?.treatmentCourse);
+  const startDate = typeof treatment.startDate === 'string' ? treatment.startDate.trim() : '';
+  if (!startDate) return;
+  const durationDays = Math.min(90, Math.max(1, Number.isInteger(treatment.durationDays) ? treatment.durationDays : 90));
+  await sql`INSERT INTO public."متابعه كورس سندس العلاج" (device_id, course_start_date, duration_days, reminders_enabled, doses, taken_by_date, updated_at)
+    VALUES (${deviceId}::uuid, ${startDate}::date, ${durationDays}, ${Boolean(treatment.remindersEnabled)}, ${JSON.stringify(arrayValue(treatment.doses))}::jsonb, ${JSON.stringify(objectValue(treatment.takenByDate))}::jsonb, NOW())
+    ON CONFLICT (device_id) DO UPDATE SET course_start_date=EXCLUDED.course_start_date, duration_days=EXCLUDED.duration_days, reminders_enabled=EXCLUDED.reminders_enabled, doses=EXCLUDED.doses, taken_by_date=EXCLUDED.taken_by_date, updated_at=NOW()`;
+}
+
 function parseIdentity(body) {
   const deviceId = validateDeviceId(body?.deviceId);
   const deviceSecret = validateDeviceSecret(body?.deviceSecret);
@@ -145,6 +163,7 @@ async function handleSync(request, response) {
       sendJson(response, 409, { error: 'device_key_conflict' });
       return;
     }
+    await saveTreatmentCourse(sql, deviceId, body.state);
     sendJson(response, 200, { version: 1, ok: true, updatedAt: rows[0].updatedAt });
     return;
   }

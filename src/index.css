@@ -816,3 +816,41 @@ body { background:var(--sonds-surface); color:var(--sonds-text); }
 /* Mood tracking and gratitude bank */
 .sundus-wellbeing-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }.mood-tracker-card, .gratitude-card { padding: 17px; border: 1px solid #efdbe8; border-radius: 20px; background: #fff; }.wellbeing-heading { display: flex; align-items: center; gap: 8px; color: #d50070; }.wellbeing-heading > div { display: grid; gap: 2px; }.wellbeing-heading strong { color: #5a304f; font-size: 14px; }.wellbeing-heading small { color: #9b788f; font-size: 9px; font-weight: 700; }.mood-options { display: flex; justify-content: space-between; gap: 5px; margin: 18px 0 13px; }.mood-options button { display: grid; min-width: 42px; flex: 1; gap: 3px; place-items: center; padding: 6px 2px; border: 1px solid #f0e4ec; border-radius: 11px; background: #fffafd; }.mood-options button.selected { border-color: #ff7bb7; background: #ffeaf4; box-shadow: 0 3px 10px #ff007f1f; }.mood-options button span { font-size: 22px; line-height: 1; }.mood-options button small { color: #8d7084; font-size: 8px; font-weight: 800; }.mood-indicators { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }.mood-indicators div { display: grid; gap: 2px; padding: 8px 3px; border-radius: 10px; text-align: center; background: #fff5fa; }.mood-indicators strong { color: #c40067; font-size: 17px; }.mood-indicators small { color: #9b788f; font-size: 8px; font-weight: 800; }.gratitude-form { display: grid; gap: 7px; margin-top: 15px; }.gratitude-form textarea { min-height: 65px; resize: vertical; padding: 9px; border: 1px solid #ead8e5; border-radius: 11px; outline: none; color: #4b304c; font: inherit; font-size: 11px; }.gratitude-form textarea:focus { border-color: #ff7bb7; }.gratitude-form button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 32px; border: 0; border-radius: 9px; color: #fff; background: #d50070; font-size: 10px; font-weight: 900; }.gratitude-form button:disabled { opacity: .45; }.gratitude-list { display: grid; gap: 6px; max-height: 150px; overflow-y: auto; margin-top: 12px; }.gratitude-list div { display: flex; align-items: flex-start; gap: 6px; padding: 8px; border-radius: 9px; color: #6b4d63; background: #fff8fc; font-size: 10px; line-height: 1.6; font-weight: 700; }.gratitude-list div svg { flex: 0 0 auto; margin-top: 2px; color: #e39a00; }.gratitude-list p { margin: 0; color: #a58d9f; font-size: 10px; text-align: center; }.gratitude-count { display: block; margin-top: 8px; color: #a58d9f; font-size: 9px; font-weight: 800; }.sundus-save-status { display: flex; align-items: center; gap: 6px; padding: 9px 12px; border-radius: 10px; color: #9e0053; background: #fff0f7; font-size: 10px; font-weight: 800; }
 @media (max-width: 700px) { .sundus-wellbeing-grid { grid-template-columns: 1fr; } }
+
+.treatment-page { display: grid; gap: 14px; margin-top: 12px; }
+.treatment-back-button { justify-self: start; display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border: 1px solid #e8e1eb; border-radius: 10px; background: #fff; color: #75687d; font-size: 11px; font-weight: 800; }
+.treatment-hero { display: flex; align-items: center; justify-content: space-between; min-height: 190px; padding: 28px 34px; border: 1px solid #f1d4e2; border-radius: 24px; background: linear-gradient(115deg, #fff2f8, #fff 60%, #edfaff); }
+.treatment-eyebrow { display: inline-flex; align-items: center; gap: 6px; color: #c50064; font-size: 11px; font-weight: 900; }
+.treatment-hero h2 { margin: 8px 0 5px; color: #402b48; font-size: 32px; font-weight: 900; }
+.treatment-hero p { max-width: 600px; margin: 0; color: #766a7d; font-size: 13px; font-weight: 700; }
+.treatment-hero-icon { display: grid; width: 104px; height: 104px; place-items: center; border-radius: 32px; background: #ffe1ef; color: #d0006e; box-shadow: 0 12px 25px #d5237620; }
+.treatment-settings, .treatment-dose-editor, .treatment-table-card { padding: 19px; border: 1px solid #ece9f0; border-radius: 19px; background: #fff; }
+.treatment-section-heading, .treatment-table-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.treatment-section-heading h3, .treatment-table-heading h3 { margin: 2px 0 0; font-size: 19px; font-weight: 900; }
+.treatment-settings-grid { display: grid; grid-template-columns: minmax(180px, 260px) 1fr; align-items: end; gap: 12px; margin-top: 15px; }
+.treatment-settings-grid label:not(.treatment-reminder-toggle) { display: grid; gap: 5px; color: #766a7d; font-size: 11px; font-weight: 800; }
+.treatment-settings-grid input[type=date] { min-height: 39px; padding: 0 10px; border: 1px solid #e4dbe8; border-radius: 10px; color: #493950; background: #fff; }
+.treatment-reminder-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 39px; color: #a90057; font-size: 12px; font-weight: 900; }
+.treatment-reminder-toggle input, .treatment-dose-enabled input { accent-color: #ff007f; }
+.treatment-safety-note { margin: 13px 0 0; color: #998da0; font-size: 10px; font-weight: 700; }
+.treatment-add-dose { display: inline-flex; align-items: center; gap: 5px; padding: 8px 11px; border: 1px solid #f1bfd4; border-radius: 10px; background: #fff3f8; color: #b5005e; font-size: 11px; font-weight: 900; }
+.treatment-dose-list { display: grid; gap: 8px; margin-top: 14px; }
+.treatment-dose { display: grid; grid-template-columns: 26px 105px minmax(0, 1fr) 34px; align-items: center; gap: 9px; padding: 9px; border: 1px solid #f0dce7; border-radius: 12px; background: #fffafe; }
+.treatment-dose-disabled { opacity: .55; }
+.treatment-dose-enabled { display: grid; place-items: center; }
+.treatment-time, .treatment-medicines { width: 100%; min-height: 35px; padding: 0 9px; border: 1px solid #e5dce8; border-radius: 9px; color: #493950; background: #fff; font-size: 11px; font-weight: 800; }
+.treatment-medicines { direction: rtl; }
+.treatment-delete-dose { display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid #ffd0df; border-radius: 9px; background: #fff2f6; color: #c3295d; }
+.treatment-table-heading > strong { color: #c50064; font-size: 20px; }
+.treatment-table-heading > strong small { display: block; color: #998da0; font-size: 9px; }
+.treatment-table-wrap { overflow-x: auto; margin-top: 15px; border: 1px solid #eee7f0; border-radius: 13px; }
+.treatment-table { width: 100%; min-width: 640px; border-collapse: collapse; text-align: right; }
+.treatment-table th { padding: 11px 12px; color: #988b9c; background: #fbf8fc; font-size: 10px; font-weight: 900; }
+.treatment-table td { padding: 10px 12px; border-top: 1px solid #f1ebf2; color: #57465f; font-size: 11px; font-weight: 800; }
+.treatment-table tr.treatment-day-complete td { background: #f5fff9; color: #347a5b; }
+.treatment-count { display: inline-flex; padding: 5px 8px; border-radius: 9px; background: #fff2c7; color: #a16e00; font-size: 10px; }
+.treatment-day-complete .treatment-count { background: #d8ffeb; color: #168150; }
+.treatment-day-doses { display: flex; flex-wrap: wrap; gap: 6px; }
+.treatment-day-doses button { display: inline-flex; align-items: center; gap: 3px; padding: 5px 8px; border: 1px solid #eadce8; border-radius: 8px; background: #fff; color: #806e82; font-size: 9px; font-weight: 900; }
+.treatment-day-doses button.taken { border-color: #8fe1b7; background: #dcffeb; color: #168150; }
+@media (max-width: 700px) { .treatment-hero { min-height: 170px; padding: 22px 18px; }.treatment-hero h2 { font-size: 24px; }.treatment-hero-icon { width: 72px; height: 72px; border-radius: 23px; }.treatment-settings-grid { grid-template-columns: 1fr; }.treatment-dose { grid-template-columns: 25px 90px minmax(0, 1fr) 32px; gap: 6px; }.treatment-medicines { font-size: 10px; }.treatment-table-card { padding: 14px; } }

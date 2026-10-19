@@ -51,7 +51,7 @@ internal class MealAlarmScheduler(private val context: Context) {
             action = "com.sonds.totti.MEAL_${meal.id}"
             putExtra(EXTRA_MEAL_ID, meal.id)
         }
-        val requestCode = (meal.id.hashCode() and 0x7fffffff) % 100000 + 2000
+        val requestCode = notificationIdFor(meal.id)
         return PendingIntent.getBroadcast(
             context, requestCode, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -63,6 +63,14 @@ internal class MealAlarmScheduler(private val context: Context) {
         // Android keeps notification-channel sound immutable; use a fresh ID for the new track.
         const val CHANNEL_ID = "meal_schedule_with_audio_v3"
         const val WATER_CHANNEL_ID = "water_reminder_with_audio_v1"
+
+        fun notificationIdFor(id: String): Int = (id.hashCode() and 0x7fffffff) % 100000 + 2000
+
+        fun cancelTreatmentReminder(context: Context, doseId: String) {
+            if (!doseId.startsWith("treatment-")) return
+            context.getSystemService(Context.NOTIFICATION_SERVICE)
+                ?.let { (it as NotificationManager).cancel(notificationIdFor(doseId)) }
+        }
 
         fun ensureChannel(context: Context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -109,19 +117,22 @@ class MealReminderReceiver : BroadcastReceiver() {
                 meal.id.startsWith("adhkar-morning") -> "حان وقت أذكار الصباح — ابدئي يومك بذكر الله."
                 meal.id.startsWith("adhkar-evening") -> "حان وقت أذكار المساء — اختمي يومك بطمأنينة."
                 meal.id.startsWith("water-reminder") -> "تذكير لطيف من توتي — خذي كوب ماء الآن."
+                meal.id.startsWith("treatment-") -> "حان وقت ${meal.title.removePrefix("العلاج: ").trim()} — علّمي الجرعة بعد أخذها لإيقاف التنبيه."
                 else -> "تذكير لطيف من توتي — خطتك الصحية بانتظارك."
             }
             val channelId = if (meal.id.startsWith("water-reminder")) MealAlarmScheduler.WATER_CHANNEL_ID else MealAlarmScheduler.CHANNEL_ID
+            val isTreatment = meal.id.startsWith("treatment-")
             val notification = Notification.Builder(context, channelId)
                 .setSmallIcon(android.R.drawable.ic_popup_reminder)
-                .setContentTitle(if (meal.id.startsWith("water-reminder")) "وقت شرب الماء" else if (meal.id.startsWith("adhkar")) meal.title else "حان موعد ${meal.title}")
+                .setContentTitle(if (isTreatment) "حان وقت جرعة العلاج" else if (meal.id.startsWith("water-reminder")) "وقت شرب الماء" else if (meal.id.startsWith("adhkar")) meal.title else "حان موعد ${meal.title}")
                 .setContentText(notificationCopy)
                 .setStyle(Notification.BigTextStyle().bigText(notificationCopy))
-                .setAutoCancel(true)
+                .setOngoing(isTreatment)
+                .setAutoCancel(!isTreatment)
                 .setContentIntent(openApp)
                 .setCategory(Notification.CATEGORY_REMINDER)
                 .build()
-            val notificationId = (meal.id.hashCode() and 0x7fffffff) % 100000 + 2000
+            val notificationId = MealAlarmScheduler.notificationIdFor(meal.id)
             (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
                 .notify(notificationId, notification)
         }

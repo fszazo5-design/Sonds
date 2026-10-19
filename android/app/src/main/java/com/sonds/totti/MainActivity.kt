@@ -357,6 +357,11 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
+        fun acknowledgeTreatmentDose(doseId: String) = runOnUiThread {
+            MealAlarmScheduler.cancelTreatmentReminder(this@MainActivity, doseId.take(80))
+        }
+
+        @JavascriptInterface
         fun refreshWebApp() = refreshGitHubUi()
 
         @JavascriptInterface

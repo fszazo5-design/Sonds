@@ -46,6 +46,7 @@ import AdhkarPage, { type AdhkarSettings } from './components/AdhkarPage';
 import QuranPage from './components/QuranPage';
 import PrivacyPage, { type PrivateCard } from './components/PrivacyPage';
 import ThemePage, { type ThemeSettings } from './components/ThemePage';
+import TreatmentTracker, { defaultTreatmentCourse, type TreatmentCourse } from './components/TreatmentTracker';
 import { chooseMealMessage, getMealMessageCategory } from './components/mealMessages';
 import { ensureLocalSyncIdentity, getNeonSyncApiUrl, pullNeonSnapshot, pushNeonEvent, pushNeonSnapshot, type LocalSyncIdentity } from './lib/neonSync';
 import favoriteSongVideo from './assets/favorite-song-with-sundus.mp4';
@@ -82,7 +83,7 @@ type Reward = {
 };
 
 type AdhkarProgress = { morning: Record<string, number>; evening: Record<string, number>; afterPrayer: Record<string, number>; ruqyah: Record<string, number> };
-type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; deletedGameIds?: string[]; gameReminders?: GameReminderSettings; water?: WaterTrackingData; adhkarSettings?: AdhkarSettings; adhkarProgress?: AdhkarProgress | { morning?: string[] | Record<string, number>; evening?: string[] | Record<string, number>; afterPrayer?: string[] | Record<string, number>; ruqyah?: string[] | Record<string, number> }; mealMessages?: Record<string, string>; theme?: ThemeSettings; privateCards?: PrivateCard[]; homeCardVisible?: boolean; cloudSync?: LocalSyncIdentity | null; modifiedAt?: number; achievementVersion?: number };
+type PersistedPlan = { day?: SavedDay; rewards?: Reward[]; meals?: Meal[]; jumpRope?: { sessions: number; totalJumps: number; bestJumps: number }; activityGames?: ActivityGameStats; customActivities?: CustomActivity[]; deletedGameIds?: string[]; gameReminders?: GameReminderSettings; water?: WaterTrackingData; adhkarSettings?: AdhkarSettings; adhkarProgress?: AdhkarProgress | { morning?: string[] | Record<string, number>; evening?: string[] | Record<string, number>; afterPrayer?: string[] | Record<string, number>; ruqyah?: string[] | Record<string, number> }; mealMessages?: Record<string, string>; theme?: ThemeSettings; privateCards?: PrivateCard[]; homeCardVisible?: boolean; treatmentCourse?: TreatmentCourse; cloudSync?: LocalSyncIdentity | null; modifiedAt?: number; achievementVersion?: number };
 type CloudSyncStatus = 'local' | 'pending' | 'syncing' | 'synced' | 'error';
 
 const defaultMeals: Meal[] = [
@@ -242,6 +243,7 @@ function App() {
   const [theme, setTheme] = useState<ThemeSettings>(() => ({ ...defaultTheme, ...(bootData.theme ?? {}) }));
   const [privateCards, setPrivateCards] = useState<PrivateCard[]>(() => Array.isArray(bootData.privateCards) ? bootData.privateCards : []);
   const [homeCardVisible, setHomeCardVisible] = useState(() => bootData.homeCardVisible ?? true);
+  const [treatmentCourse, setTreatmentCourse] = useState<TreatmentCourse>(() => { const defaults = defaultTreatmentCourse(); return { ...defaults, ...(bootData.treatmentCourse ?? {}), doses: bootData.treatmentCourse?.doses ?? defaults.doses, takenByDate: bootData.treatmentCourse?.takenByDate ?? {} }; });
   const [gameReminders, setGameReminders] = useState<GameReminderSettings>(() => bootData.gameReminders ?? {});
   const [mealMessages, setMealMessages] = useState<Record<string, string>>(() => bootData.mealMessages ?? {});
   const [adhkarSettings, setAdhkarSettings] = useState<AdhkarSettings>(() => bootData.adhkarSettings ?? { morningEnabled: true, morningTime: '07:00', eveningEnabled: true, eveningTime: '19:00' });
@@ -285,6 +287,7 @@ function App() {
     if (saved.theme && typeof saved.theme === 'object') setTheme({ ...defaultTheme, ...saved.theme });
     if (Array.isArray(saved.privateCards)) setPrivateCards(saved.privateCards);
     if (typeof saved.homeCardVisible === 'boolean') setHomeCardVisible(saved.homeCardVisible);
+    if (saved.treatmentCourse && typeof saved.treatmentCourse === 'object') { const defaults = defaultTreatmentCourse(); setTreatmentCourse({ ...defaults, ...saved.treatmentCourse, doses: Array.isArray(saved.treatmentCourse.doses) ? saved.treatmentCourse.doses : defaults.doses, takenByDate: saved.treatmentCourse.takenByDate ?? {} }); }
     if (saved.gameReminders && typeof saved.gameReminders === 'object') setGameReminders(saved.gameReminders);
     if (saved.mealMessages && typeof saved.mealMessages === 'object' && !Array.isArray(saved.mealMessages)) setMealMessages(saved.mealMessages);
     if (saved.adhkarSettings) setAdhkarSettings(saved.adhkarSettings);
@@ -395,9 +398,10 @@ function App() {
     theme,
     privateCards,
     homeCardVisible,
+    treatmentCourse,
     cloudSync: syncIdentity,
     achievementVersion: ACHIEVEMENT_SYSTEM_VERSION,
-  }), [today, checked, meals, score, streak, rewards, bootData.jumpRope, activityGameStats, customActivities, deletedGameIds, gameReminders, waterData, adhkarSettings, adhkarProgress, mealMessages, theme, privateCards, homeCardVisible, syncIdentity]);
+  }), [today, checked, meals, score, streak, rewards, bootData.jumpRope, activityGameStats, customActivities, deletedGameIds, gameReminders, waterData, adhkarSettings, adhkarProgress, mealMessages, theme, privateCards, homeCardVisible, treatmentCourse, syncIdentity]);
   const currentPlanRef = useRef(currentPlan);
   currentPlanRef.current = currentPlan;
   const lastSavedPlanJsonRef = useRef(JSON.stringify(currentPlan));
@@ -472,8 +476,11 @@ function App() {
       ...(adhkarSettings.morningEnabled ? [{ id: 'adhkar-morning', title: 'أذكار الصباح', time: adhkarSettings.morningTime }] : []),
       ...(adhkarSettings.eveningEnabled ? [{ id: 'adhkar-evening', title: 'أذكار المساء', time: adhkarSettings.eveningTime }] : []),
     ];
-    window.AndroidBridge?.saveSchedule(JSON.stringify([...meals.map(({ id, title, time }) => ({ id, title, time })), ...waterReminders, ...gameSchedule, ...adhkarSchedule]));
-  }, [meals, waterData.remindersEnabled, waterData.reminderTimes, gameReminders, customActivities, adhkarSettings]);
+    const treatmentReminders = treatmentCourse.remindersEnabled
+      ? treatmentCourse.doses.filter((dose) => dose.enabled && /^([01]\d|2[0-3]):[0-5]\d$/.test(dose.time)).map((dose) => ({ id: dose.id, title: `العلاج: ${dose.medicines.join(' + ')}`, time: dose.time, kind: 'treatment' }))
+      : [];
+    window.AndroidBridge?.saveSchedule(JSON.stringify([...meals.map(({ id, title, time }) => ({ id, title, time })), ...waterReminders, ...gameSchedule, ...adhkarSchedule, ...treatmentReminders]));
+  }, [meals, waterData.remindersEnabled, waterData.reminderTimes, gameReminders, customActivities, adhkarSettings, treatmentCourse.remindersEnabled, treatmentCourse.doses]);
 
 
 
@@ -677,6 +684,7 @@ function App() {
         <div className="totti-message"><div><b>رسالة اليوم</b><p>{allComplete ? 'واو! يوم كامل من الإنجاز! أنتِ بطلة حقيقية' : completedCount === 0 ? 'يلا يا سندس، نبدأ أول خطوة؟' : completedCount === 1 ? 'أحسنتِ! أول خطوة هي الأهم يا بطلة' : 'شغل ممتاز! استمري، فاضل القليل'}</p></div><Heart size={19} className="message-heart" fill="currentColor" /></div>
       </section>
 
+      <TreatmentTracker active={activeNav === 'calendar'} course={treatmentCourse} onChange={setTreatmentCourse} onBack={() => changePage('menu', true)} />
       <section hidden={activeNav !== 'calendar'} className="meal-section">
         <AwqatiVideoCard active={activeNav === 'calendar'} apiBaseUrl={neonSyncApiUrl} />
         <div className="section-title-row"><div><span className="section-kicker">خطة التغذية</span><h2>وجباتك اليوم</h2></div><div className="meal-list-actions"><span className="target-pill"><span /> الهدف 1700 سعرة</span><button type="button" className="add-meal-button" onClick={startMealAdd}><Plus size={17} /> إضافة وجبة</button></div></div>

@@ -7,6 +7,7 @@ declare global {
       loadState(): string;
       saveState(payload: string): string;
       saveSchedule(payload: string): string;
+      acknowledgeTreatmentDose(doseId: string): void;
       requestNotificationPermission(): void;
       requestCameraPermission(): void;
       requestMicrophonePermission(): void;

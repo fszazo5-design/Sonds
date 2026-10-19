@@ -522,6 +522,13 @@ async function saveNormalizedState(sql, deviceId, state) {
   await sql`INSERT INTO public.sonds_adhkar_settings (device_id, morning_enabled, morning_time, evening_enabled, evening_time, morning_progress, evening_progress, updated_at)
     VALUES (${deviceId}::uuid, ${Boolean(adhkarSettings.morningEnabled)}, ${validTime(adhkarSettings.morningTime, '07:00')}, ${Boolean(adhkarSettings.eveningEnabled)}, ${validTime(adhkarSettings.eveningTime, '19:00')}, ${JSON.stringify(asArray(adhkarProgress.morning))}::jsonb, ${JSON.stringify(asArray(adhkarProgress.evening))}::jsonb, NOW())
     ON CONFLICT (device_id) DO UPDATE SET morning_enabled=EXCLUDED.morning_enabled, morning_time=EXCLUDED.morning_time, evening_enabled=EXCLUDED.evening_enabled, evening_time=EXCLUDED.evening_time, morning_progress=EXCLUDED.morning_progress, evening_progress=EXCLUDED.evening_progress, updated_at=NOW()`;
+  const treatment = asObject(state.treatmentCourse);
+  const treatmentStartDate = text(treatment.startDate);
+  if (treatmentStartDate) {
+    await sql`INSERT INTO public."متابعه كورس سندس العلاج" (device_id, course_start_date, duration_days, reminders_enabled, doses, taken_by_date, updated_at)
+      VALUES (${deviceId}::uuid, ${treatmentStartDate}::date, ${Math.min(90, Math.max(1, integer(treatment.durationDays, 90)))}, ${Boolean(treatment.remindersEnabled)}, ${JSON.stringify(asArray(treatment.doses))}::jsonb, ${JSON.stringify(asObject(treatment.takenByDate))}::jsonb, NOW())
+      ON CONFLICT (device_id) DO UPDATE SET course_start_date=EXCLUDED.course_start_date, duration_days=EXCLUDED.duration_days, reminders_enabled=EXCLUDED.reminders_enabled, doses=EXCLUDED.doses, taken_by_date=EXCLUDED.taken_by_date, updated_at=NOW()`;
+  }
   await sql`INSERT INTO public.sonds_app_settings (device_id, settings, updated_at)
     VALUES (${deviceId}::uuid, ${JSON.stringify(appSettings)}::jsonb, NOW())
     ON CONFLICT (device_id) DO UPDATE SET settings=EXCLUDED.settings, updated_at=NOW()`;
