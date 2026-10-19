@@ -38,7 +38,7 @@ function formatDate(date: Date) { return new Intl.DateTimeFormat('ar-EG', { week
 export default function TreatmentTracker({ active, course, onChange, onBack }: Props) {
   const [tableOpen, setTableOpen] = useState(true);
   const tableWrapRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef({ active: false, pointerId: -1, startX: 0, startScrollLeft: 0 });
+  const dragRef = useRef({ active: false, pointerId: -1, startX: 0, startY: 0, startScrollLeft: 0, axis: null as 'x' | 'y' | null });
   const days = useMemo(() => Array.from({ length: Math.min(90, Math.max(1, course.durationDays || 90)) }, (_, index) => addDays(course.startDate, index)), [course.startDate, course.durationDays]);
   const enabledDoses = course.doses.filter((dose) => dose.enabled);
   const takenCount = Object.values(course.takenByDate).reduce((sum, values) => sum + values.length, 0);
@@ -55,21 +55,36 @@ export default function TreatmentTracker({ active, course, onChange, onBack }: P
   const removeDose = (doseId: string) => onChange({ ...course, doses: course.doses.filter((dose) => dose.id !== doseId) });
   const moveTable = (amount: number) => tableWrapRef.current?.scrollBy({ left: amount, behavior: 'smooth' });
   const startTableDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
-    // Let touch input use native scrolling so vertical page scroll and horizontal table swipes both work.
-    if (event.pointerType !== 'mouse') return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     if ((event.target as HTMLElement).closest('button, input, a')) return;
     const wrap = tableWrapRef.current;
     if (!wrap || wrap.scrollWidth <= wrap.clientWidth) return;
-    dragRef.current = { active: true, pointerId: event.pointerId, startX: event.clientX, startScrollLeft: wrap.scrollLeft };
-    wrap.classList.add('is-dragging');
-    wrap.setPointerCapture(event.pointerId);
+    const isMouse = event.pointerType === 'mouse';
+    dragRef.current = { active: true, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, startScrollLeft: wrap.scrollLeft, axis: isMouse ? 'x' : null };
+    if (isMouse) {
+      wrap.classList.add('is-dragging');
+      wrap.setPointerCapture(event.pointerId);
+    }
   };
   const dragTable = (event: ReactPointerEvent<HTMLDivElement>) => {
     const wrap = tableWrapRef.current;
     if (!wrap || !dragRef.current.active || dragRef.current.pointerId !== event.pointerId) return;
+    const deltaX = event.clientX - dragRef.current.startX;
+    const deltaY = event.clientY - dragRef.current.startY;
+    if (!dragRef.current.axis) {
+      if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 8) return;
+      if (Math.abs(deltaY) >= Math.abs(deltaX)) {
+        dragRef.current.active = false;
+        return;
+      }
+      dragRef.current.axis = 'x';
+      wrap.classList.add('is-dragging');
+      wrap.setPointerCapture(event.pointerId);
+    }
+    if (dragRef.current.axis !== 'x') return;
     event.preventDefault();
-    wrap.scrollLeft = dragRef.current.startScrollLeft - (event.clientX - dragRef.current.startX);
+    const scrollDirection = getComputedStyle(wrap).direction === 'rtl' ? 1 : -1;
+    wrap.scrollLeft = dragRef.current.startScrollLeft + deltaX * scrollDirection;
   };
   const stopTableDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     const wrap = tableWrapRef.current;
