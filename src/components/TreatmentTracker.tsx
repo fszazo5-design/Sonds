@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Bell, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Pill, Plus, Trash2, X } from 'lucide-react';
 
 export type TreatmentDose = { id: string; time: string; medicines: string[]; enabled: boolean };
@@ -38,6 +38,7 @@ function formatDate(date: Date) { return new Intl.DateTimeFormat('ar-EG', { week
 export default function TreatmentTracker({ active, course, onChange, onBack }: Props) {
   const [tableOpen, setTableOpen] = useState(true);
   const tableWrapRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef({ active: false, pointerId: -1, startX: 0, startScrollLeft: 0 });
   const days = useMemo(() => Array.from({ length: Math.min(90, Math.max(1, course.durationDays || 90)) }, (_, index) => addDays(course.startDate, index)), [course.startDate, course.durationDays]);
   const enabledDoses = course.doses.filter((dose) => dose.enabled);
   const takenCount = Object.values(course.takenByDate).reduce((sum, values) => sum + values.length, 0);
@@ -53,6 +54,28 @@ export default function TreatmentTracker({ active, course, onChange, onBack }: P
   const addDose = () => onChange({ ...course, doses: [...course.doses, { id: `treatment-${Date.now()}`, time: '12:00', medicines: ['دواء جديد'], enabled: true }] });
   const removeDose = (doseId: string) => onChange({ ...course, doses: course.doses.filter((dose) => dose.id !== doseId) });
   const moveTable = (amount: number) => tableWrapRef.current?.scrollBy({ left: amount, behavior: 'smooth' });
+  const startTableDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    if ((event.target as HTMLElement).closest('button, input, a')) return;
+    const wrap = tableWrapRef.current;
+    if (!wrap || wrap.scrollWidth <= wrap.clientWidth) return;
+    dragRef.current = { active: true, pointerId: event.pointerId, startX: event.clientX, startScrollLeft: wrap.scrollLeft };
+    wrap.classList.add('is-dragging');
+    wrap.setPointerCapture(event.pointerId);
+  };
+  const dragTable = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const wrap = tableWrapRef.current;
+    if (!wrap || !dragRef.current.active || dragRef.current.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    wrap.scrollLeft = dragRef.current.startScrollLeft - (event.clientX - dragRef.current.startX);
+  };
+  const stopTableDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const wrap = tableWrapRef.current;
+    if (!wrap || dragRef.current.pointerId !== event.pointerId) return;
+    dragRef.current.active = false;
+    wrap.classList.remove('is-dragging');
+    if (wrap.hasPointerCapture(event.pointerId)) wrap.releasePointerCapture(event.pointerId);
+  };
 
   if (!active) return null;
   return <section className="treatment-page">
@@ -84,7 +107,7 @@ export default function TreatmentTracker({ active, course, onChange, onBack }: P
     <section className="treatment-table-card">
       <div className="treatment-table-heading"><button type="button" className="treatment-table-toggle" onClick={() => setTableOpen((open) => !open)} aria-expanded={tableOpen} aria-controls="treatment-days-table"><span><span className="section-kicker">خطة 90 يومًا</span><h3>متابعة الأيام والجرعات</h3><small>{tableOpen ? 'اضغطي للإغلاق أو اسحبي الجدول يمينًا ويسارًا' : 'اضغطي لعرض جدول الأيام والجرعات'}</small></span><ChevronDown size={20} /></button><strong>{takenCount} / {totalCount} <small>جرعة مؤكدة</small></strong></div>
       {tableOpen && <div className="treatment-table-controls"><span>حرّكي الجدول يمينًا ويسارًا لرؤية كل الخانات</span><div><button type="button" onClick={() => moveTable(280)} aria-label="تحريك الجدول لليمين"><ChevronRight size={16} /></button><button type="button" onClick={() => moveTable(-280)} aria-label="تحريك الجدول لليسار"><ChevronLeft size={16} /></button></div></div>}
-      {tableOpen && <div className="treatment-table-wrap" ref={tableWrapRef} id="treatment-days-table" tabIndex={0} aria-label="جدول متابعة الأيام والجرعات"><table className="treatment-table"><thead><tr><th>اليوم</th><th>التاريخ</th><th>عدد الجرعات</th><th>التأكيد</th></tr></thead><tbody>{days.map((date, index) => {
+      {tableOpen && <div className="treatment-table-wrap" ref={tableWrapRef} id="treatment-days-table" tabIndex={0} aria-label="جدول متابعة الأيام والجرعات" onPointerDown={startTableDrag} onPointerMove={dragTable} onPointerUp={stopTableDrag} onPointerCancel={stopTableDrag} onPointerLeave={stopTableDrag}><table className="treatment-table"><thead><tr><th>اليوم</th><th>التاريخ</th><th>عدد الجرعات</th><th>التأكيد</th></tr></thead><tbody>{days.map((date, index) => {
         const day = dateKey(date);
         const taken = course.takenByDate[day] ?? [];
         return <tr key={day} className={taken.length === enabledDoses.length && enabledDoses.length > 0 ? 'treatment-day-complete' : ''}><td>اليوم {index + 1}</td><td>{formatDate(date)}</td><td><span className="treatment-count">{taken.length} / {enabledDoses.length}</span></td><td><div className="treatment-day-doses">{enabledDoses.map((dose) => <button type="button" key={dose.id} className={taken.includes(dose.id) ? 'taken' : ''} onClick={() => toggleTaken(day, dose.id)} title={`${dose.time} — ${dose.medicines.join(' + ')}`}><span>{dose.time}</span>{taken.includes(dose.id) ? <Check size={14} /> : <ChevronLeft size={14} />}</button>)}</div></td></tr>;
