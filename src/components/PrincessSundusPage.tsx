@@ -8,6 +8,8 @@ import princessGoldImage from '../assets/princess-sundus-gold.webp';
 
 type Tab = 'room' | 'bubbles' | 'smoothie';
 type Bubble = { id: number; x: number; size: number; color: string; drift: number };
+type Ingredient = { name: string; emoji: string; color: string };
+type RecipeKind = 'smoothie' | 'recipe' | 'drink';
 
 const affirmations = [
   'يا سندس، أنتِ أميرة قوية ومميزة ومتألقة دائمًا ✨',
@@ -24,7 +26,7 @@ const looks = [
   { id: 'gold', name: 'ذهبي الغروب', emoji: '☀️', color: '#f59e0b', image: princessGoldImage, dress: 'فستان ذهبي وردي', background: 'شرفة الغروب' },
 ];
 
-const ingredients = [
+const ingredients: Ingredient[] = [
   { name: 'فراولة', emoji: '🍓', color: '#fb7185' },
   { name: 'موز', emoji: '🍌', color: '#fde047' },
   { name: 'توت', emoji: '🫐', color: '#818cf8' },
@@ -62,7 +64,11 @@ export default function PrincessSundusPage({ active }: { active: boolean }) {
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [popped, setPopped] = useState(0);
   const [message, setMessage] = useState('اضغطي على الفقاعات لاكتشاف رسالة جميلة يا سندس ✨');
-  const [items, setItems] = useState<typeof ingredients>([]);
+  const [availableIngredients, setAvailableIngredients] = useState<Ingredient[]>(ingredients);
+  const [items, setItems] = useState<Ingredient[]>([]);
+  const [recipeKind, setRecipeKind] = useState<RecipeKind>('smoothie');
+  const [customIngredientName, setCustomIngredientName] = useState('');
+  const [customIngredientEmoji, setCustomIngredientEmoji] = useState('🍽️');
   const [blending, setBlending] = useState(false);
   const [ready, setReady] = useState(false);
   const [smoothieColor, setSmoothieColor] = useState('#fda4af');
@@ -87,6 +93,17 @@ export default function PrincessSundusPage({ active }: { active: boolean }) {
     setMessage(affirmations[Math.floor(Math.random() * affirmations.length)]);
     setPopped((current) => current + 1);
   };
+  const addCustomIngredient = () => {
+    const name = customIngredientName.trim();
+    if (!name || availableIngredients.some((item) => item.name === name)) return;
+    const colors = ['#fb7185', '#fbbf24', '#60a5fa', '#34d399', '#c084fc', '#f97316'];
+    const item = { name, emoji: customIngredientEmoji.trim() || '🍽️', color: colors[availableIngredients.length % colors.length] };
+    setAvailableIngredients((current) => [...current, item]);
+    setCustomIngredientName('');
+    setCustomIngredientEmoji('🍽️');
+    playTone('sparkle', sound);
+  };
+  const kindLabel = recipeKind === 'smoothie' ? 'العصير' : recipeKind === 'recipe' ? 'الوصفة' : 'المشروب';
   const blend = () => {
     if (!items.length || blending) return;
     setBlending(true); playTone('blend', sound);
@@ -102,7 +119,7 @@ export default function PrincessSundusPage({ active }: { active: boolean }) {
     <div className="princess-section-title"><div><span className="section-kicker">مغامرة اليوم</span><h2>{title}</h2></div><span className="princess-score"><Sparkles size={14} /> {popped} أمنية</span></div>
     {tab === 'room' && <div className="princess-room-layout"><div className="princess-scene"><div className="scene-glow" />{decor.includes('stars') && <div className="scene-stars">✦ ✧ ★ ✦ ✧</div>}<img className="princess-character" src={look.image} alt="الأميرة سندس في القصر" />{decor.includes('flowers') && <div className="scene-flowers">🌸 🌷 🌸</div>}<button type="button" className="photo-button" onClick={() => { setPhotoFlash(true); playTone('sparkle', sound); window.setTimeout(() => setPhotoFlash(false), 500); }}><Camera size={16} /> لقطة سحرية</button>{photoFlash && <div className="photo-flash" aria-hidden="true"><Camera size={42} /></div>}<div className="scene-caption">سندس حارسة النجوم ✨</div></div><aside className="princess-controls"><h3><Shirt size={18} /> لوحة الألوان والفساتين</h3><p className="look-help">اختاري نسخة لتطبيق الفستان والخلفية على الصورة نفسها:</p><div className="look-grid">{looks.map((item) => <button type="button" key={item.id} className={look.id === item.id ? 'selected' : ''} onClick={() => { setLook(item); playTone('sparkle', sound); }}><img src={item.image} alt={item.name} /><span className="look-swatch" style={{ backgroundColor: item.color }} /><strong>{item.emoji} {item.name}</strong><small>{item.dress}</small><em>{item.background}</em></button>)}</div><h3><Flower2 size={18} /> ديكور القصر</h3><div className="decor-grid"><button type="button" className={decor.includes('stars') ? 'selected' : ''} onClick={() => toggleDecor('stars')}>✨ النجوم</button><button type="button" className={decor.includes('flowers') ? 'selected' : ''} onClick={() => toggleDecor('flowers')}>🌸 الزهور</button></div><div className="outfit-note"><span style={{ backgroundColor: look.color }} /> إطلالة اليوم: <strong>{look.dress}</strong><small> · {look.background}</small></div></aside></div>}
     {tab === 'bubbles' && <div className="bubble-game"><div className="affirmation-card"><Sparkles size={20} /><p>«{message}»</p><small>اضغطي الفقاعات لتغيير الرسالة</small></div><div className="bubble-stage">{!bubbles.length && <span className="bubble-hint">تظهر الأمنيات هنا… ✨</span>}{bubbles.map((bubble) => <button type="button" key={bubble.id} className="wish-bubble" onClick={() => popBubble(bubble)} style={{ left: `${bubble.x}%`, width: bubble.size, height: bubble.size, backgroundColor: bubble.color, ['--bubble-drift' as string]: `${bubble.drift}px`, animationDuration: `${4 + bubble.size / 30}s` }}>✦</button>)}</div></div>}
-    {tab === 'smoothie' && <div className="smoothie-game"><div className="blender-card"><div className={`blender-cup ${blending ? 'blending' : ''}`} style={ready ? { background: `linear-gradient(160deg, ${smoothieColor}, #fff1f2)` } : undefined}>{ready ? '🥤' : items.map((item, index) => <span key={`${item.name}-${index}`}>{item.emoji}</span>)}{blending && <i>🌀</i>}</div><p>{ready ? 'العصير الملكي جاهز لسندس! ✨' : `اختاري حتى 4 مكونات (${items.length}/4)`}</p><div className="blender-actions"><button type="button" onClick={blend} disabled={!items.length || blending}><Sparkles size={15} /> {blending ? 'جاري الخلط…' : 'اخلطي العصير'}</button><button type="button" onClick={() => { setItems([]); setReady(false); }} aria-label="إعادة ضبط"><RefreshCw size={16} /></button></div></div><div className="ingredients-card"><h3><Coffee size={18} /> مكونات طازجة</h3><div className="ingredients-grid">{ingredients.map((item) => <button type="button" key={item.name} disabled={items.length >= 4 || blending} onClick={() => { setItems((current) => current.length < 4 ? [...current, item] : current); setReady(false); playTone('pop', sound); }}><span>{item.emoji}</span><small>{item.name}</small>{items.includes(item) && <Check size={13} />}</button>)}</div></div></div>}
+    {tab === 'smoothie' && <div className="smoothie-game"><div className="blender-card"><div className={`blender-cup ${blending ? 'blending' : ''}`} style={ready ? { background: `linear-gradient(160deg, ${smoothieColor}, #fff1f2)` } : undefined}>{ready ? (recipeKind === 'recipe' ? '🍲' : recipeKind === 'drink' ? '🧋' : '🥤') : items.map((item, index) => <span key={`${item.name}-${index}`}>{item.emoji}</span>)}{blending && <i>🌀</i>}</div><p>{ready ? `${kindLabel} الملكي جاهز لسندس! ✨` : `اختاري مكونات ${kindLabel} (${items.length}/8)`}</p><div className="blender-actions"><button type="button" onClick={blend} disabled={!items.length || blending}><Sparkles size={15} /> {blending ? 'جاري التحضير…' : `اصنعي ${kindLabel}`}</button><button type="button" onClick={() => { setItems([]); setReady(false); }} aria-label="إعادة ضبط"><RefreshCw size={16} /></button></div></div><div className="ingredients-card"><h3><Coffee size={18} /> مطبخ سندس المفتوح</h3><div className="recipe-kind" role="group" aria-label="نوع التحضير">{([{ id: 'smoothie', label: 'عصير', emoji: '🥤' }, { id: 'recipe', label: 'وصفة', emoji: '🍲' }, { id: 'drink', label: 'مشروب', emoji: '🧋' }] as const).map((kind) => <button type="button" key={kind.id} className={recipeKind === kind.id ? 'selected' : ''} onClick={() => { setRecipeKind(kind.id); setReady(false); }}><span>{kind.emoji}</span>{kind.label}</button>)}</div><div className="ingredients-grid">{availableIngredients.map((item) => <button type="button" key={item.name} disabled={items.length >= 8 || blending} onClick={() => { setItems((current) => current.length < 8 ? [...current, item] : current); setReady(false); playTone('pop', sound); }}><span>{item.emoji}</span><small>{item.name}</small>{items.includes(item) && <Check size={13} />}</button>)}</div><div className="custom-ingredient"><strong>أضيفي أي مكوّن من عندك</strong><div className="custom-ingredient-fields"><input value={customIngredientName} onChange={(event) => setCustomIngredientName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') addCustomIngredient(); }} placeholder="مثال: تفاح، نعناع، قرفة…" maxLength={30} /><input className="emoji-input" value={customIngredientEmoji} onChange={(event) => setCustomIngredientEmoji(event.target.value)} aria-label="رمز المكوّن" maxLength={3} /><button type="button" onClick={addCustomIngredient} disabled={!customIngredientName.trim()}>إضافة</button></div><small>سيظهر المكوّن الجديد في القائمة ويمكنك إدخاله في أي عصير أو وصفة أو مشروب.</small></div></div></div>}
     <p className="princess-footer"><Sparkles size={14} /> كل ضغطة تصنع لحظة جميلة للأميرة سندس <Sparkles size={14} /></p>
   </section>;
 }
