@@ -11,14 +11,23 @@ const API_URL = 'https://api.alquran.cloud/v1/surah';
 const RECITER_ID = 'ar.mahermuaiqly';
 const RECITER_NAME = 'ماهر المعيقلي';
 const AUDIO_BASE = 'https://cdn.islamic.network/quran/audio/128/ar.mahermuaiqly';
+const AUDIO_PROXY_BASE = 'https://sonds.fszazo5.workers.dev/v1/quran/audio';
+const audioUrl = (ayahNumber: number): string => `${AUDIO_PROXY_BASE}/${ayahNumber}`;
 const CACHE_NAME = 'sonds-quran-maher-v1';
 
-async function getCachedAudio(url: string): Promise<string> {
-  if (!('caches' in window)) return url;
-  const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(url);
-  if (!cached) return url;
-  return URL.createObjectURL(await cached.blob());
+async function getCachedAudio(url: string, fallbackUrl: string): Promise<string> {
+  if (!('caches' in window)) return fallbackUrl;
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    const cached = await cache.match(url);
+    if (cached) return URL.createObjectURL(await cached.blob());
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) throw new Error('audio_proxy_failed');
+    await cache.put(url, response.clone());
+    return URL.createObjectURL(await response.blob());
+  } catch {
+    return fallbackUrl;
+  }
 }
 
 export default function QuranPage({ active, onBack }: Props) {
@@ -61,7 +70,7 @@ export default function QuranPage({ active, onBack }: Props) {
     const loadAudio = async () => {
       const ayah = ayahs[currentAyah];
       if (!ayah) return;
-      const src = await getCachedAudio(ayah.audio || `${AUDIO_BASE}/${ayah.number}.mp3`);
+      const src = await getCachedAudio(audioUrl(ayah.number), ayah.audio || `${AUDIO_BASE}/${ayah.number}.mp3`);
       if (!cancelled) setAudioSrc(src);
     };
     void loadAudio();
@@ -100,7 +109,7 @@ export default function QuranPage({ active, onBack }: Props) {
   const downloadOffline = async () => {
     if (!('caches' in window) || ayahs.length === 0) { setAudioError('التخزين دون إنترنت غير متاح في هذا الجهاز.'); return; }
     setDownloadProgress(0); const cache = await caches.open(CACHE_NAME);
-    for (let i = 0; i < ayahs.length; i += 1) { const url = ayahs[i].audio || `${AUDIO_BASE}/${ayahs[i].number}.mp3`; if (!(await cache.match(url))) await cache.add(url); setDownloadProgress(Math.round(((i + 1) / ayahs.length) * 100)); }
+    for (let i = 0; i < ayahs.length; i += 1) { const url = audioUrl(ayahs[i].number); if (!(await cache.match(url))) { const response = await fetch(url, { mode: 'cors' }); if (!response.ok) throw new Error('audio_download_failed'); await cache.put(url, response); } setDownloadProgress(Math.round(((i + 1) / ayahs.length) * 100)); }
     setOfflineReady(true); window.setTimeout(() => setDownloadProgress(null), 1800);
   };
 

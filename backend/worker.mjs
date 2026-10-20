@@ -681,6 +681,31 @@ async function handleMediaRequest(request, env, cors, url) {
   return new Response(body, { status: range.partial ? 206 : 200, headers: responseHeaders });
 }
 
+const QURAN_AUDIO_BASE = 'https://cdn.islamic.network/quran/audio/128/ar.mahermuaiqly';
+async function handleQuranAudioRequest(request, cors, url) {
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    const headers = new Headers(cors); headers.set('Allow', 'GET, HEAD, OPTIONS');
+    return jsonResponse({ error: 'method_not_allowed' }, 405, headers);
+  }
+  const match = url.pathname.match(/^\/v1\/quran\/audio\/(\d+)$/);
+  const ayahNumber = match ? Number(match[1]) : 0;
+  if (!Number.isInteger(ayahNumber) || ayahNumber < 1 || ayahNumber > 6236) return jsonResponse({ error: 'invalid_ayah' }, 400, cors);
+  const headers = new Headers();
+  const range = request.headers.get('Range');
+  if (range) headers.set('Range', range);
+  const upstream = await fetch(`${QURAN_AUDIO_BASE}/${ayahNumber}.mp3`, { headers });
+  if (!upstream.ok) return jsonResponse({ error: 'quran_audio_unavailable' }, 502, cors);
+  const responseHeaders = new Headers(cors);
+  responseHeaders.set('Content-Type', upstream.headers.get('Content-Type') || 'audio/mpeg');
+  responseHeaders.set('Accept-Ranges', upstream.headers.get('Accept-Ranges') || 'bytes');
+  responseHeaders.set('Cache-Control', 'public, max-age=31536000, immutable');
+  for (const name of ['Content-Length', 'Content-Range', 'ETag']) {
+    const value = upstream.headers.get(name); if (value) responseHeaders.set(name, value);
+  }
+  return new Response(request.method === 'HEAD' ? null : upstream.body, { status: upstream.status, headers: responseHeaders });
+}
+
 async function handleGameEndRingtoneRequest(request, env, cors) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   if (request.method !== 'GET' && request.method !== 'HEAD') {
@@ -751,6 +776,14 @@ export default {
         const status = Number.isInteger(error?.statusCode) ? error.statusCode : 503;
         if (status >= 500) console.error('Neon video request failed; verify Worker secret and video table migration.');
         return jsonResponse({ error: status === 503 ? 'media_service_unavailable' : (error?.message ?? 'media_request_failed') }, status, cors.headers);
+      }
+    }
+    if (url.pathname === '/v1/quran/audio' || url.pathname.startsWith('/v1/quran/audio/')) {
+      try {
+        return await handleQuranAudioRequest(request, cors.headers, url);
+      } catch (error) {
+        console.error('Quran audio proxy failed; verify the upstream audio CDN.');
+        return jsonResponse({ error: 'quran_audio_service_unavailable' }, 503, cors.headers);
       }
     }
     if (url.pathname === '/v1/game-end-ringtone') {
