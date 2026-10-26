@@ -55,6 +55,7 @@ import favoriteSongVideo from './assets/favorite-song-with-sundus.mp4';
 import startupVideo from './assets/startup-video.mp4';
 import startupIntroPoster from './assets/startup-intro-poster.jpg';
 import sundusUploadedCard from './assets/sundus-uploaded-card.jpeg';
+import sundusMessageImage from './assets/sundus-water.webp';
 
 type Meal = {
   id: string;
@@ -662,7 +663,11 @@ function App() {
       </section>}
 
       <section hidden={activeNav !== 'home'} className="family-message-card" aria-labelledby="family-message-card-title">
-        <div className="family-message-card-icon" aria-hidden="true"><MessageCircle size={22} /></div>
+        <div className="family-message-card-art">
+          <div className="family-message-card-icon" aria-hidden="true"><MessageCircle size={22} /></div>
+          <img src={sundusMessageImage} alt="سندس بابتسامة لطيفة" />
+          <span>بحبك يا سندس</span>
+        </div>
         <div className="family-message-card-content">
           <span className="section-kicker">رسالة من القلب</span>
           <h2 id="family-message-card-title">السلام عليكم يا قلبي سندس وأم سندس الغاليين</h2>
