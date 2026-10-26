@@ -21,6 +21,7 @@ import {
   LockKeyhole,
   Mic,
   Music2,
+  MessageCircle,
   Pencil,
   Palette,
   Plus,
@@ -659,6 +660,18 @@ function App() {
         </div>
         <img src={sundusUploadedCard} alt="بطاقة برسالة لسندس" />
       </section>}
+
+      <section hidden={activeNav !== 'home'} className="family-message-card" aria-labelledby="family-message-card-title">
+        <div className="family-message-card-icon" aria-hidden="true"><MessageCircle size={22} /></div>
+        <div className="family-message-card-content">
+          <span className="section-kicker">رسالة من القلب</span>
+          <h2 id="family-message-card-title">السلام عليكم يا قلبي سندس وأم سندس الغاليين</h2>
+          <p>هو المهندس اتاخد ومعاه التليفون بتاعه، كنت خايف بس عشان أنا بتواصل معاه الدنيا تهدأ نسبيًا.</p>
+          <p>عاوز أطمن عليكم، يبقى كلموني بعد المغرب عشان أعرفكم إيه الدنيا.</p>
+          <p className="family-message-card-note">شغّلي الواتس نفس اللي فات في المستودع ده.</p>
+        </div>
+        <Heart className="family-message-card-heart" size={22} fill="currentColor" aria-hidden="true" />
+      </section>
 
       <section hidden={activeNav !== 'home'} className="jump-rope-promo games-home-promo">
         <div className="jump-rope-promo-icon"><Activity size={21} /></div>
